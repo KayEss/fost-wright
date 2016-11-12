@@ -1,0 +1,23 @@
+path-constant TOP : . ;
+include $(TOP)/../boost-version.jam ;
+include ../fost-base/fost.jam ;
+
+use-project fost-base : ../fost-base/ ;
+fost-project fost-wring :
+    ;
+
+alias fost :
+        ../fost-base//fost
+        Cpp/wright-exec-helper
+    ;
+
+alias tests :
+        ../fost-base//tests
+    ;
+explicit tests ;
+
+alias all :
+        fost
+        tests
+    ;
+explicit all ;

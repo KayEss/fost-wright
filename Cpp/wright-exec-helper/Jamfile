@@ -1,0 +1,5 @@
+
+fost-exe wright-exec-helper
+    :
+        wright-exec-helper.cpp
+    ;
