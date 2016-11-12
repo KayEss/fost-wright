@@ -18,6 +18,11 @@ FSL_MAIN(
     L"wright-exec-helper",
     L"Wright execution helper\nCopyright (c) 2016, Felspar Co. Ltd."
 )( fostlib::ostream &out, fostlib::arguments &args ) {
+    std::string command;
+    while ( std::cin ) {
+        std::getline(std::cin, command);
+        if ( std::cin && not command.empty() ) out << command << std::endl;
+    }
     return 0;
 }
 
