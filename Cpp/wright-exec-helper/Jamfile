@@ -1,5 +1,9 @@
-
 fost-exe wright-exec-helper
     :
+        $(TOP)/../Boost//boost-coroutine-dll
         wright-exec-helper.cpp
     ;
+
+fost-install $(TOP)/../Boost//boost-chrono-dll ;
+fost-install $(TOP)/../Boost//boost-context-dll ;
+fost-install $(TOP)/../Boost//boost-coroutine-dll ;

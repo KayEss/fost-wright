@@ -6,11 +6,17 @@
 */
 
 
+#include <f5/threading/boost-asio.hpp>
+#include <f5/threading/eventfd.hpp>
 #include <fost/cli>
 #include <fost/main>
 #include <fost/unicode>
 
+#include <boost/asio.hpp>
+#include <boost/asio/spawn.hpp>
+
 #include <chrono>
+#include <future>
 #include <thread>
 
 #include <sys/wait.h>
@@ -43,14 +49,22 @@ namespace {
 struct childproc {
     std::array<int, 2> in{{0, 0}}, out{{0, 0}};
     int pid;
+    std::string command;
 
     childproc() {
-        if ( pipe(in.data()) < 0 ) {
+        if ( ::pipe(in.data()) < 0 ) {
             throw std::system_error(errno, std::system_category());
         }
-        if ( pipe(out.data()) < 0 ) {
+        if ( ::pipe(out.data()) < 0 ) {
             throw std::system_error(errno, std::system_category());
         }
+    }
+    childproc(const childproc &) = delete;
+    childproc &operator = (const childproc &) = delete;
+
+    void write(boost::asio::yield_context yield) {
+    }
+    void read(boost::asio::yield_context yield) {
     }
 
     void close() {
@@ -76,6 +90,7 @@ FSL_MAIN(
     const fostlib::setting<fostlib::string> c_exec(__FILE__, "wright-exec-helper",
         "Execute", args[0].value(), true);
     args.commandSwitch("c", c_child);
+    args.commandSwitch("w", c_children);
 
     if ( c_child.value() ) {
         /// Child process needs to do the right thing
@@ -90,15 +105,17 @@ FSL_MAIN(
         const auto command = c_exec.value();
         std::vector<char const *> argv;
         argv.push_back(command.c_str());
-        argv.push_back("-c");
-        argv.push_back(nullptr); // holder for the child number
-        argv.push_back("-b"); // No banner
-        argv.push_back("false");
+        if ( command == argv[0] ) {
+            argv.push_back("-c");
+            argv.push_back(nullptr); // holder for the child number
+            argv.push_back("-b"); // No banner
+            argv.push_back("false");
+        }
         argv.push_back(nullptr);
 
         /// For each child go through and fork and execvpe it
         for ( auto child = 0; child < c_children.value(); ++child ) {
-            std::cerr << "Fork child " << child << ": " << argv[0] << std::endl;
+            std::cerr << "Fork child " << child+1 << ": " << argv[0] << std::endl;
             auto child_number = std::to_string(child + 1);
             argv[2] = child_number.c_str();
             children[child].pid = fork();
@@ -113,7 +130,70 @@ FSL_MAIN(
         }
         std::cerr << "All children started. Waiting for commands" << std::endl;
 
-        std::this_thread::sleep_for(5s);
+        {
+            /// Set up a promise that we're going to wait to finish on
+            std::promise<void> blocker;
+
+            /// Stop on exception, one thread. We want one thread here so
+            /// we don't have to worry about thread synchronisation when
+            /// running code in the reactor
+            f5::boost_asio::reactor_pool coordinator([]() { return false; }, 1u);
+            auto &ios = coordinator.get_io_service();
+
+            /// All the children need a presence in the reactor pool for
+            /// their process requirement
+            for ( auto &child : children ) {
+                /// Each child will wait on the command, then write it
+                /// the pipe for the process to execute and wait on the result
+                auto proc = [&child](auto yield) {
+                        /// Wait for a job to be queued in their process ID
+                    };
+                boost::asio::spawn(ios, proc);
+            }
+
+            /// This process now needs to read from stdin and queue the jobs
+            boost::asio::posix::stream_descriptor as_stdin(ios);
+            {
+                boost::system::error_code error;
+                as_stdin.assign(dup(STDIN_FILENO), error);
+                if ( error ) {
+                    std::cerr << "Cannot assign stdin to the reactor pool. This "
+                        "probably means you're trying to redirect a file rather "
+                        "than pipe the commands\n\nI.e. try this:\n"
+                        "   cat commands.txt | wright-exec-helper\n"
+                        "instead of\n"
+                        "   wright-exec-helper < commands.txt" << std::endl;
+                    exit(2);
+                }
+            }
+            auto proc = [&](auto yield) {
+                    f5::eventfd::limiter limit{ios, yield, children.size()};
+                    boost::asio::streambuf buffer;
+                    while ( as_stdin.is_open() ) {
+                        boost::system::error_code error;
+                        auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
+                        if ( bytes ) {
+                            buffer.commit(bytes);
+                            std::istream in(&buffer);
+                            std::string line;
+                            std::getline(in, line);
+                            std::cerr << line << std::endl;
+                        } else if ( error ) {
+                            std::cerr << "Error: " << error << std::endl;
+                            break;
+                        } else {
+                            std::cerr << "No bytes read" << std::endl;
+                        }
+                    }
+                    std::cerr << "Done -- unblocking" << std::endl;
+                    blocker.set_value(); // Not the final location for this
+                };
+            boost::asio::spawn(ios, proc);
+
+            /// This needs to block here until all processing is done
+            auto blocker_ready = blocker.get_future();
+            blocker_ready.wait();
+        }
 
         /// Terminating. Wait for children
         std::cerr << "Terminating" << std::endl;
