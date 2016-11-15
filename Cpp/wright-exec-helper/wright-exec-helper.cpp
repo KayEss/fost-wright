@@ -31,8 +31,10 @@ namespace {
         std::string command;
         while ( in ) {
             std::getline(in, command);
+            std::cerr << '>' << command << std::endl;
             if ( in && not command.empty() ) {
                 std::this_thread::sleep_for(2s);
+                std::cerr << '<' << command << std::endl;
                 out << command << std::endl;
             }
         }
@@ -48,8 +50,10 @@ namespace {
 
 struct childproc {
     std::array<int, 2> in{{0, 0}}, out{{0, 0}};
+    std::unique_ptr<boost::asio::posix::stream_descriptor> inp, outp;
     int pid;
     std::string command;
+    std::shared_ptr<f5::eventfd::limiter::job> task;
 
     childproc() {
         if ( ::pipe(in.data()) < 0 ) {
@@ -62,7 +66,21 @@ struct childproc {
     childproc(const childproc &) = delete;
     childproc &operator = (const childproc &) = delete;
 
-    void write(boost::asio::yield_context yield) {
+    void write(
+        boost::asio::io_service &ios,
+        std::string c,
+        boost::asio::yield_context &yield
+    ) {
+        command = c;
+        if ( not inp ) {
+            inp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, in[1]);
+            in[1] = 0;
+        }
+        boost::asio::streambuf newline;
+        newline.sputc('\n');
+        std::array<boost::asio::streambuf::const_buffers_type, 2>
+            buffer{{{command.data(), command.size()}, newline.data()}};
+        boost::asio::async_write(*inp, buffer, yield);
     }
     void read(boost::asio::yield_context yield) {
     }
@@ -74,6 +92,8 @@ struct childproc {
         if ( out[0] > 0 ) ::close(out[0]);
         if ( out[1] > 0 ) ::close(out[1]);
         out = {{0, 0}};
+        inp.reset(nullptr);
+        outp.reset(nullptr);
     }
 
     ~childproc() {
@@ -93,6 +113,7 @@ FSL_MAIN(
     args.commandSwitch("w", c_children);
 
     if ( c_child.value() ) {
+        std::cerr << "Child: " << c_child.value() << std::endl;
         /// Child process needs to do the right thing
         echo(std::cin, out);
     } else {
@@ -172,15 +193,22 @@ FSL_MAIN(
                     while ( as_stdin.is_open() ) {
                         boost::system::error_code error;
                         auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
-                        if ( bytes ) {
+                        if ( error ) {
+                            std::cerr << "Error: " << error << std::endl;
+                            break;
+                        } else if ( bytes ) {
                             buffer.commit(bytes);
                             std::istream in(&buffer);
                             std::string line;
                             std::getline(in, line);
-                            std::cerr << line << std::endl;
-                        } else if ( error ) {
-                            std::cerr << "Error: " << error << std::endl;
-                            break;
+                            auto task = ++limit; // Must do this first so it can block
+                            for ( auto &child : children ) {
+                                if ( not child.task ) {
+                                    child.write(ios, line, yield);
+                                    child.task = task;
+                                    break;
+                                }
+                            }
                         } else {
                             std::cerr << "No bytes read" << std::endl;
                         }
