@@ -82,7 +82,32 @@ struct childproc {
             buffer{{{command.data(), command.size()}, newline.data()}};
         boost::asio::async_write(*inp, buffer, yield);
     }
-    void read(boost::asio::yield_context yield) {
+    boost::asio::posix::stream_descriptor &read(boost::asio::io_service &ios) {
+        if ( not outp ) {
+            outp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, out[0]);
+            out[0] = 0;
+        }
+        return *outp;
+    }
+    std::string read(
+        boost::asio::io_service &ios,
+        boost::asio::streambuf &buffer,
+        boost::asio::yield_context yield
+    ) {
+        boost::system::error_code error;
+        auto bytes = boost::asio::async_read_until(read(ios), buffer, '\n', yield[error]);
+        if ( error ) {
+            std::cerr << "Error: " << error << std::endl;
+        } else if ( bytes ) {
+            buffer.commit(bytes);
+            std::istream in(&buffer);
+            std::string line;
+            std::getline(in, line);
+            return line;
+        } else {
+            std::cerr << "No bytes read" << std::endl;
+        }
+        return std::string();
     }
 
     void close() {
@@ -113,7 +138,6 @@ FSL_MAIN(
     args.commandSwitch("w", c_children);
 
     if ( c_child.value() ) {
-        std::cerr << "Child: " << c_child.value() << std::endl;
         /// Child process needs to do the right thing
         echo(std::cin, out);
     } else {
@@ -166,8 +190,16 @@ FSL_MAIN(
             for ( auto &child : children ) {
                 /// Each child will wait on the command, then write it
                 /// the pipe for the process to execute and wait on the result
-                auto proc = [&child](auto yield) {
+                auto proc = [&](auto yield) {
                         /// Wait for a job to be queued in their process ID
+                        boost::asio::streambuf buffer;
+                        while ( child.read(ios).is_open() ) {
+                            auto ret = child.read(ios, buffer, yield);
+                            child.task->done([](auto e, auto b) {});
+                            child.task.reset();
+                            child.command.empty();
+                            out << '*' << ret << std::endl;
+                        }
                     };
                 boost::asio::spawn(ios, proc);
             }
