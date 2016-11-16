@@ -39,7 +39,7 @@ namespace {
     void echo(std::istream &in, fostlib::ostream &out) {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::normal_distribution<float> rand(2000, 300);
+        std::normal_distribution<float> rand(2000, 500);
         std::string command;
         while ( in ) {
             std::getline(in, command);
