@@ -15,8 +15,11 @@
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <future>
+#include <random>
 #include <thread>
 
 #include <sys/wait.h>
@@ -27,24 +30,25 @@ using namespace std::chrono_literals;
 
 
 namespace {
-    void echo(std::istream &in, fostlib::ostream &out) {
-        std::string command;
-        while ( in ) {
-            std::getline(in, command);
-            std::cerr << '>' << command << std::endl;
-            if ( in && not command.empty() ) {
-                std::this_thread::sleep_for(2s);
-                std::cerr << '<' << command << std::endl;
-                out << command << std::endl;
-            }
-        }
-    }
-
     /// The child number. Zero means the parent process
     const fostlib::setting<int64_t> c_child(__FILE__, "wright-exec-helper",
         "Child", 0, true);
     const fostlib::setting<int64_t> c_children(__FILE__, "wright-exec-helper",
         "Children", std::thread::hardware_concurrency(), true);
+
+    void echo(std::istream &in, fostlib::ostream &out) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::normal_distribution<float> rand(2000, 300);
+        std::string command;
+        while ( in ) {
+            std::getline(in, command);
+            if ( in && not command.empty() ) {
+                std::this_thread::sleep_for(rand(gen) * 1ms);
+                out << command << std::endl;
+            }
+        }
+    }
 }
 
 
@@ -104,8 +108,6 @@ struct childproc {
             std::string line;
             std::getline(in, line);
             return line;
-        } else {
-            std::cerr << "No bytes read" << std::endl;
         }
         return std::string();
     }
@@ -143,7 +145,6 @@ FSL_MAIN(
     } else {
         /// The parent sets up the communications redirects etc and spawns
         /// child processes
-        std::cerr << "Parent process spawning " << c_children.value() << " children\n";
         std::vector<childproc> children(c_children.value());
 
         /// Set up the argument vector for the child
@@ -160,7 +161,6 @@ FSL_MAIN(
 
         /// For each child go through and fork and execvpe it
         for ( auto child = 0; child < c_children.value(); ++child ) {
-            std::cerr << "Fork child " << child+1 << ": " << argv[0] << std::endl;
             auto child_number = std::to_string(child + 1);
             argv[2] = child_number.c_str();
             children[child].pid = fork();
@@ -173,11 +173,13 @@ FSL_MAIN(
                 execvp(argv[0], const_cast<char *const *>(argv.data()));
             }
         }
-        std::cerr << "All children started. Waiting for commands" << std::endl;
 
         {
             /// Set up a promise that we're going to wait to finish on
             std::promise<void> blocker;
+            /// Flag to tell us if the input stream has completed (closed)
+            /// yet
+            bool in_closed{false};
 
             /// Stop on exception, one thread. We want one thread here so
             /// we don't have to worry about thread synchronisation when
@@ -190,18 +192,25 @@ FSL_MAIN(
             for ( auto &child : children ) {
                 /// Each child will wait on the command, then write it
                 /// the pipe for the process to execute and wait on the result
-                auto proc = [&](auto yield) {
+                auto *cp = &child;
+                boost::asio::spawn(ios, [&, cp](auto yield) {
                         /// Wait for a job to be queued in their process ID
                         boost::asio::streambuf buffer;
-                        while ( child.read(ios).is_open() ) {
-                            auto ret = child.read(ios, buffer, yield);
-                            child.task->done([](auto e, auto b) {});
-                            child.task.reset();
-                            child.command.empty();
-                            out << '*' << ret << std::endl;
+                        while ( cp->read(ios).is_open() ) {
+                            auto ret = cp->read(ios, buffer, yield);
+                            cp->task.reset();
+                            cp->command.empty();
+                            out <<ret << std::endl;
+                            if ( in_closed ) {
+                                const auto working = std::count_if(children.begin(), children.end(),
+                                        [](const auto &c) { return bool(c.task.get()); });
+                                if ( working == 0 ) {
+                                    blocker.set_value();
+                                }
+                                return;
+                            }
                         }
-                    };
-                boost::asio::spawn(ios, proc);
+                    });
             }
 
             /// This process now needs to read from stdin and queue the jobs
@@ -219,14 +228,13 @@ FSL_MAIN(
                     exit(2);
                 }
             }
-            auto proc = [&](auto yield) {
+            boost::asio::spawn(ios, [&](auto yield) {
                     f5::eventfd::limiter limit{ios, yield, children.size()};
                     boost::asio::streambuf buffer;
                     while ( as_stdin.is_open() ) {
                         boost::system::error_code error;
                         auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
                         if ( error ) {
-                            std::cerr << "Error: " << error << std::endl;
                             break;
                         } else if ( bytes ) {
                             buffer.commit(bytes);
@@ -241,14 +249,10 @@ FSL_MAIN(
                                     break;
                                 }
                             }
-                        } else {
-                            std::cerr << "No bytes read" << std::endl;
                         }
                     }
-                    std::cerr << "Done -- unblocking" << std::endl;
-                    blocker.set_value(); // Not the final location for this
-                };
-            boost::asio::spawn(ios, proc);
+                    in_closed = true;
+                });
 
             /// This needs to block here until all processing is done
             auto blocker_ready = blocker.get_future();
@@ -256,7 +260,6 @@ FSL_MAIN(
         }
 
         /// Terminating. Wait for children
-        std::cerr << "Terminating" << std::endl;
         for ( auto &child : children ) {
             child.close();
             waitpid(child.pid, nullptr, 0);
