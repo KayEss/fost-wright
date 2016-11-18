@@ -25,6 +25,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cxxabi.h>
+
 
 using namespace std::chrono_literals;
 
@@ -36,10 +38,28 @@ namespace {
     const fostlib::setting<int64_t> c_children(__FILE__, "wright-exec-helper",
         "Children", std::thread::hardware_concurrency(), true);
 
+
+    const auto exception_decorator = [](auto fn, std::function<void(void)> recov = [](){}) {
+        return [=](auto &&...a) {
+                try {
+                    fn(a...);
+                } catch ( boost::coroutines::detail::forced_unwind & ) {
+                    throw;
+                } catch ( std::exception &e ) {
+                    std::cerr << e.what() << ": " << c_child.value() << std::endl;
+                    throw;
+                } catch ( ... ) {
+                    std::cerr << "Unkown exception: " << c_child.value() << " - "
+                        << __cxxabiv1::__cxa_current_exception_type()->name() << std::endl;
+                    throw;
+                }
+            };
+        };
+
     void echo(std::istream &in, fostlib::ostream &out) {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::normal_distribution<float> rand(2000, 500);
+        std::normal_distribution<float> rand(1000, 500);
         std::string command;
         while ( in ) {
             std::getline(in, command);
@@ -193,7 +213,7 @@ FSL_MAIN(
                 /// Each child will wait on the command, then write it
                 /// the pipe for the process to execute and wait on the result
                 auto *cp = &child;
-                boost::asio::spawn(ios, [&, cp](auto yield) {
+                boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
                         /// Wait for a job to be queued in their process ID
                         boost::asio::streambuf buffer;
                         while ( cp->read(ios).is_open() ) {
@@ -207,10 +227,9 @@ FSL_MAIN(
                                 if ( working == 0 ) {
                                     blocker.set_value();
                                 }
-                                return;
                             }
                         }
-                    });
+                    }));
             }
 
             /// This process now needs to read from stdin and queue the jobs
@@ -228,7 +247,7 @@ FSL_MAIN(
                     exit(2);
                 }
             }
-            boost::asio::spawn(ios, [&](auto yield) {
+            boost::asio::spawn(ios, exception_decorator([&](auto yield) {
                     f5::eventfd::limiter limit{ios, yield, children.size()};
                     boost::asio::streambuf buffer;
                     while ( as_stdin.is_open() ) {
@@ -252,7 +271,7 @@ FSL_MAIN(
                         }
                     }
                     in_closed = true;
-                });
+                }));
 
             /// This needs to block here until all processing is done
             auto blocker_ready = blocker.get_future();
