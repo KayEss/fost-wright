@@ -109,8 +109,7 @@ struct childproc {
     ) {
         command = c;
         if ( not inp ) {
-            inp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, in[1]);
-            in[1] = 0;
+            inp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, dup(in[1]));
         }
         boost::asio::streambuf newline;
         newline.sputc('\n');
@@ -120,8 +119,7 @@ struct childproc {
     }
     boost::asio::posix::stream_descriptor &read(boost::asio::io_service &ios) {
         if ( not outp ) {
-            outp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, out[0]);
-            out[0] = 0;
+            outp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, dup(out[0]));
         }
         return *outp;
     }
