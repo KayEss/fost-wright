@@ -6,6 +6,11 @@
 */
 
 
+#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
+#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
+
+#include <wright/port.hpp>
+
 #include <f5/threading/boost-asio.hpp>
 #include <f5/threading/eventfd.hpp>
 #include <fost/cli>
@@ -59,11 +64,13 @@ namespace {
     void echo(std::istream &in, fostlib::ostream &out) {
         decltype(std::chrono::high_resolution_clock::now()) from{}, to{};
         const auto epoch = from.time_since_epoch();
-        decltype(from - to) total{};
+        decltype(to - from) total{};
         unsigned int captures{};
+
         std::random_device rd;
         std::mt19937 gen(rd());
         std::normal_distribution<float> rand(1000, 500);
+
         std::string command;
         while ( in ) {
             std::getline(in, command);
@@ -85,20 +92,15 @@ namespace {
 
 
 struct childproc {
-    std::array<int, 2> in{{0, 0}}, out{{0, 0}};
+    wright::pipe_in stdin;
+    wright::pipe_out stdout;
     std::unique_ptr<boost::asio::posix::stream_descriptor> inp, outp;
+
     int pid;
     std::string command;
     std::shared_ptr<f5::eventfd::limiter::job> task;
 
-    childproc() {
-        if ( ::pipe(in.data()) < 0 ) {
-            throw std::system_error(errno, std::system_category());
-        }
-        if ( ::pipe(out.data()) < 0 ) {
-            throw std::system_error(errno, std::system_category());
-        }
-    }
+    childproc() = default;
     childproc(const childproc &) = delete;
     childproc &operator = (const childproc &) = delete;
 
@@ -109,7 +111,7 @@ struct childproc {
     ) {
         command = c;
         if ( not inp ) {
-            inp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, dup(in[1]));
+            inp = stdin.parent(ios);
         }
         boost::asio::streambuf newline;
         newline.sputc('\n');
@@ -119,7 +121,7 @@ struct childproc {
     }
     boost::asio::posix::stream_descriptor &read(boost::asio::io_service &ios) {
         if ( not outp ) {
-            outp = std::make_unique<boost::asio::posix::stream_descriptor>(ios, dup(out[0]));
+            outp = stdout.parent(ios);
         }
         return *outp;
     }
@@ -143,14 +145,10 @@ struct childproc {
     }
 
     void close() {
-        if ( in[0] > 0 ) ::close(in[0]);
-        if ( in[1] > 0 ) ::close(in[1]);
-        in = {{0, 0}};
-        if ( out[0] > 0 ) ::close(out[0]);
-        if ( out[1] > 0 ) ::close(out[1]);
-        out = {{0, 0}};
-        inp.reset(nullptr);
-        outp.reset(nullptr);
+        stdout.close();
+        stdin.close();
+        inp.reset();
+        outp.reset();
     }
 
     ~childproc() {
@@ -197,8 +195,8 @@ FSL_MAIN(
             if ( children[child].pid < 0 ) {
                 throw std::system_error(errno, std::system_category());
             } else if ( children[child].pid == 0 ) {
-                dup2(children[child].in[0], STDIN_FILENO);
-                dup2(children[child].out[1], STDOUT_FILENO);
+                dup2(children[child].stdin.child(), STDIN_FILENO);
+                dup2(children[child].stdout.child(), STDOUT_FILENO);
                 children.clear(); // closes the pipes in this process
                 execvp(argv[0], const_cast<char *const *>(argv.data()));
             }
