@@ -7,6 +7,7 @@
 
 
 #include <cstddef>
+#include <experimental/optional>
 #include <tuple>
 #include <utility>
 
@@ -32,6 +33,7 @@ namespace wright {
         template<std::size_t PFD, std::size_t CFD>
         class pipe {
             int parent_fd = 0;
+            std::experimental::optional<boost::asio::posix::stream_descriptor> parent_sd;
             int child_fd = 0;
         public:
             /// Create a new pipe
@@ -45,6 +47,7 @@ namespace wright {
             /// Close the file handles
             void close() {
                 detail::close(parent_fd);
+                if ( parent_sd ) parent_sd.value().close();
                 detail::close(child_fd);
             }
 
@@ -54,8 +57,11 @@ namespace wright {
                 return child_fd;
             }
             /// Return the parent in a form usable for ASIO
-            std::unique_ptr<boost::asio::posix::stream_descriptor> parent(boost::asio::io_service &ios) const {
-                return std::make_unique<boost::asio::posix::stream_descriptor>(ios, detail::dup(parent_fd));
+            boost::asio::posix::stream_descriptor &parent(boost::asio::io_service &ios) {
+                if ( not parent_sd ) {
+                    parent_sd = boost::asio::posix::stream_descriptor(ios, detail::dup(parent_fd));
+                }
+                return parent_sd.value();
             }
         };
 

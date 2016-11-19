@@ -94,7 +94,6 @@ namespace {
 struct childproc {
     wright::pipe_in stdin;
     wright::pipe_out stdout;
-    std::unique_ptr<boost::asio::posix::stream_descriptor> inp, outp;
 
     int pid;
     std::string command;
@@ -110,20 +109,11 @@ struct childproc {
         boost::asio::yield_context &yield
     ) {
         command = c;
-        if ( not inp ) {
-            inp = stdin.parent(ios);
-        }
         boost::asio::streambuf newline;
         newline.sputc('\n');
         std::array<boost::asio::streambuf::const_buffers_type, 2>
             buffer{{{command.data(), command.size()}, newline.data()}};
-        boost::asio::async_write(*inp, buffer, yield);
-    }
-    boost::asio::posix::stream_descriptor &read(boost::asio::io_service &ios) {
-        if ( not outp ) {
-            outp = stdout.parent(ios);
-        }
-        return *outp;
+        boost::asio::async_write(stdin.parent(ios), buffer, yield);
     }
     std::string read(
         boost::asio::io_service &ios,
@@ -131,7 +121,7 @@ struct childproc {
         boost::asio::yield_context yield
     ) {
         boost::system::error_code error;
-        auto bytes = boost::asio::async_read_until(read(ios), buffer, '\n', yield[error]);
+        auto bytes = boost::asio::async_read_until(stdout.parent(ios), buffer, '\n', yield[error]);
         if ( error ) {
             std::cerr << "Error: " << error << std::endl;
         } else if ( bytes ) {
@@ -147,8 +137,6 @@ struct childproc {
     void close() {
         stdout.close();
         stdin.close();
-        inp.reset();
-        outp.reset();
     }
 
     ~childproc() {
@@ -224,7 +212,7 @@ FSL_MAIN(
                 boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
                         /// Wait for a job to be queued in their process ID
                         boost::asio::streambuf buffer;
-                        while ( cp->read(ios).is_open() ) {
+                        while ( cp->stdout.parent(ios).is_open() ) {
                             auto ret = cp->read(ios, buffer, yield);
                             cp->task.reset();
                             cp->command.empty();
