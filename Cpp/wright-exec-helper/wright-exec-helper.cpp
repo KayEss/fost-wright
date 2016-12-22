@@ -208,10 +208,13 @@ FSL_MAIN(
                         /// Wait for a job to be queued in their process ID
                         boost::asio::streambuf buffer;
                         while ( cp->stdout.parent(ios).is_open() ) {
-                            auto ret = cp->read(ios, buffer, yield);
-                            cp->task.reset();
-                            cp->command.empty();
-                            out << ret << std::endl;
+                            boost::system::error_code error;
+                            auto ret = cp->read(ios, buffer, yield[error]);
+                            if ( not error ) {
+                                cp->task.reset();
+                                cp->command.empty();
+                                out << ret << std::endl;
+                            }
                             if ( in_closed ) {
                                 const auto working = std::count_if(children.begin(), children.end(),
                                         [](const auto &c) { return bool(c.task.get()); });
