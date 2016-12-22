@@ -211,7 +211,7 @@ FSL_MAIN(
                             auto ret = cp->read(ios, buffer, yield);
                             cp->task.reset();
                             cp->command.empty();
-                            out <<ret << std::endl;
+                            out << ret << std::endl;
                             if ( in_closed ) {
                                 const auto working = std::count_if(children.begin(), children.end(),
                                         [](const auto &c) { return bool(c.task.get()); });
