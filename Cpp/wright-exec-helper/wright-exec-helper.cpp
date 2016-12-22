@@ -39,7 +39,7 @@ namespace {
         "Children", std::thread::hardware_concurrency(), true);
 
 
-    const auto exception_decorator = [](auto fn, std::function<void(void)> recov = [](){}) {
+    const auto exception_decorator = [](auto fn/*, std::function<void(void)> recov = [](){}*/) {
         return [=](auto &&...a) {
                 try {
                     fn(a...);
