@@ -157,97 +157,95 @@ FSL_MAIN(
             }
         }
 
-        {
-            /// Set up a promise that we're going to wait to finish on
-            std::promise<void> blocker;
-            /// Flag to tell us if the input stream has completed (closed)
-            /// yet and if the blocker has been signalled
-            bool in_closed{false}, signalled{false};
+        /// Set up a promise that we're going to wait to finish on
+        std::promise<void> blocker;
+        /// Flag to tell us if the input stream has completed (closed)
+        /// yet and if the blocker has been signalled
+        bool in_closed{false}, signalled{false};
 
-            /// Stop on exception, one thread. We want one thread here so
-            /// we don't have to worry about thread synchronisation when
-            /// running code in the reactor
-            f5::boost_asio::reactor_pool coordinator([]() { return false; }, 1u);
-            auto &ios = coordinator.get_io_service();
+        /// Stop on exception, one thread. We want one thread here so
+        /// we don't have to worry about thread synchronisation when
+        /// running code in the reactor
+        f5::boost_asio::reactor_pool coordinator([]() { return false; }, 1u);
+        auto &ios = coordinator.get_io_service();
 
-            /// All the children need a presence in the reactor pool for
-            /// their process requirement
-            for ( auto &child : children ) {
-                /// Each child will wait on the command, then write it
-                /// the pipe for the process to execute and wait on the result
-                auto *cp = &child;
-                boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
-                        /// Wait for a job to be queued in their process ID
-                        boost::asio::streambuf buffer;
-                        while ( cp->stdout.parent(ios).is_open() ) {
-                            boost::system::error_code error;
-                            auto ret = cp->read(ios, buffer, yield[error]);
-                            if ( not error && not ret.empty() ) {
-                                cp->commands.pop_front();
-                                out << ret << std::endl;
-                                if ( in_closed && not signalled ) {
-                                    const auto working = std::count_if(children.begin(), children.end(),
-                                            [](const auto &c) { return not c.commands.empty(); });
-                                    if ( working == 0 ) {
-                                        signalled = true;
-                                        blocker.set_value();
-                                    }
-                                }
-                            }
-                        }
-                    }));
-            }
-
-            /// This process now needs to read from stdin and queue the jobs
-            boost::asio::posix::stream_descriptor as_stdin(ios);
-            {
-                boost::system::error_code error;
-                as_stdin.assign(dup(STDIN_FILENO), error);
-                if ( error ) {
-                    std::cerr << "Cannot assign stdin to the reactor pool. This "
-                        "probably means you're trying to redirect a file rather "
-                        "than pipe the commands\n\nI.e. try this:\n"
-                        "   cat commands.txt | wright-exec-helper\n"
-                        "instead of\n"
-                        "   wright-exec-helper < commands.txt" << std::endl;
-                    std::exit(2);
-                }
-            }
-            boost::asio::spawn(ios, exception_decorator([&](auto yield) {
-                    f5::eventfd::limiter limit{ios, yield, children.size() * buffer_size};
+        /// All the children need a presence in the reactor pool for
+        /// their process requirement
+        for ( auto &child : children ) {
+            /// Each child will wait on the command, then write it
+            /// the pipe for the process to execute and wait on the result
+            auto *cp = &child;
+            boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
+                    /// Wait for a job to be queued in their process ID
                     boost::asio::streambuf buffer;
-                    while ( as_stdin.is_open() ) {
+                    while ( cp->stdout.parent(ios).is_open() ) {
                         boost::system::error_code error;
-                        auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
-                        if ( error ) {
-                            in_closed = true;
-                            return;
-                        } else if ( bytes ) {
-                            buffer.commit(bytes);
-                            std::istream in(&buffer);
-                            std::string line;
-                            std::getline(in, line);
-                            auto task = ++limit; // Must do this first so it can block
-                            for ( auto &child : children ) {
-                                if ( not child.commands.full() ) {
-                                    child.write(ios, line, yield);
-                                    child.commands.push_back(std::make_pair(line, std::move(task)));
-                                    break;
+                        auto ret = cp->read(ios, buffer, yield[error]);
+                        if ( not error && not ret.empty() ) {
+                            cp->commands.pop_front();
+                            out << ret << std::endl;
+                            if ( in_closed && not signalled ) {
+                                const auto working = std::count_if(children.begin(), children.end(),
+                                        [](const auto &c) { return not c.commands.empty(); });
+                                if ( working == 0 ) {
+                                    signalled = true;
+                                    blocker.set_value();
                                 }
                             }
                         }
                     }
                 }));
+        }
 
-            /// This needs to block here until all processing is done
-            auto blocker_ready = blocker.get_future();
-            blocker_ready.wait();
-
-            /// Terminating. Wait for children
-            for ( auto &child : children ) {
-                child.close();
-                waitpid(child.pid, nullptr, 0);
+        /// This process now needs to read from stdin and queue the jobs
+        boost::asio::posix::stream_descriptor as_stdin(ios);
+        {
+            boost::system::error_code error;
+            as_stdin.assign(dup(STDIN_FILENO), error);
+            if ( error ) {
+                std::cerr << "Cannot assign stdin to the reactor pool. This "
+                    "probably means you're trying to redirect a file rather "
+                    "than pipe the commands\n\nI.e. try this:\n"
+                    "   cat commands.txt | wright-exec-helper\n"
+                    "instead of\n"
+                    "   wright-exec-helper < commands.txt" << std::endl;
+                std::exit(2);
             }
+        }
+        boost::asio::spawn(ios, exception_decorator([&](auto yield) {
+                f5::eventfd::limiter limit{ios, yield, children.size() * buffer_size};
+                boost::asio::streambuf buffer;
+                while ( as_stdin.is_open() ) {
+                    boost::system::error_code error;
+                    auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
+                    if ( error ) {
+                        in_closed = true;
+                        return;
+                    } else if ( bytes ) {
+                        buffer.commit(bytes);
+                        std::istream in(&buffer);
+                        std::string line;
+                        std::getline(in, line);
+                        auto task = ++limit; // Must do this first so it can block
+                        for ( auto &child : children ) {
+                            if ( not child.commands.full() ) {
+                                child.write(ios, line, yield);
+                                child.commands.push_back(std::make_pair(line, std::move(task)));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }));
+
+        /// This needs to block here until all processing is done
+        auto blocker_ready = blocker.get_future();
+        blocker_ready.wait();
+
+        /// Terminating. Wait for children
+        for ( auto &child : children ) {
+            child.close();
+            waitpid(child.pid, nullptr, 0);
         }
     }
     return 0;
