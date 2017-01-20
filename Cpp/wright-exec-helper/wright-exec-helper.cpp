@@ -19,6 +19,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
+#include <boost/circular_buffer.hpp>
 
 #include <future>
 #include <random>
@@ -37,6 +38,9 @@ namespace {
         "Child", 0, true);
     const fostlib::setting<int64_t> c_children(__FILE__, "wright-exec-helper",
         "Children", std::thread::hardware_concurrency(), true);
+
+    /// The buffer size for each child
+    const std::size_t buffer_size = 3;
 
 
     const auto exception_decorator = [](auto fn/*, std::function<void(void)> recov = [](){}*/) {
@@ -91,35 +95,34 @@ struct childproc {
     wright::pipe_out stdout;
 
     int pid;
-    std::string command;
-    std::shared_ptr<f5::eventfd::limiter::job> task;
+    boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
 
-    childproc() = default;
+    childproc()
+    : commands(buffer_size) {
+    }
     childproc(const childproc &) = delete;
     childproc &operator = (const childproc &) = delete;
 
+    /// Send a job to the child
     void write(
         boost::asio::io_service &ios,
-        std::string c,
+        const std::string &command,
         boost::asio::yield_context &yield
     ) {
-        command = c;
         boost::asio::streambuf newline;
         newline.sputc('\n');
         std::array<boost::asio::streambuf::const_buffers_type, 2>
             buffer{{{command.data(), command.size()}, newline.data()}};
         boost::asio::async_write(stdin.parent(ios), buffer, yield);
     }
+    /// Read the job that the child has done
     std::string read(
         boost::asio::io_service &ios,
         boost::asio::streambuf &buffer,
         boost::asio::yield_context yield
     ) {
-        boost::system::error_code error;
-        auto bytes = boost::asio::async_read_until(stdout.parent(ios), buffer, '\n', yield[error]);
-        if ( error ) {
-            std::cerr << "Error: " << error << std::endl;
-        } else if ( bytes ) {
+        auto bytes = boost::asio::async_read_until(stdout.parent(ios), buffer, '\n', yield);
+        if ( bytes ) {
             buffer.commit(bytes);
             std::istream in(&buffer);
             std::string line;
@@ -189,8 +192,8 @@ FSL_MAIN(
             /// Set up a promise that we're going to wait to finish on
             std::promise<void> blocker;
             /// Flag to tell us if the input stream has completed (closed)
-            /// yet
-            bool in_closed{false};
+            /// yet and if the blocker has been signalled
+            bool in_closed{false}, signalled{false};
 
             /// Stop on exception, one thread. We want one thread here so
             /// we don't have to worry about thread synchronisation when
@@ -210,16 +213,16 @@ FSL_MAIN(
                         while ( cp->stdout.parent(ios).is_open() ) {
                             boost::system::error_code error;
                             auto ret = cp->read(ios, buffer, yield[error]);
-                            if ( not error ) {
-                                cp->task.reset();
-                                cp->command.empty();
+                            if ( not error && not ret.empty() ) {
+                                cp->commands.pop_front();
                                 out << ret << std::endl;
-                            }
-                            if ( in_closed ) {
-                                const auto working = std::count_if(children.begin(), children.end(),
-                                        [](const auto &c) { return bool(c.task.get()); });
-                                if ( working == 0 ) {
-                                    blocker.set_value();
+                                if ( in_closed && not signalled ) {
+                                    const auto working = std::count_if(children.begin(), children.end(),
+                                            [](const auto &c) { return not c.commands.empty(); });
+                                    if ( working == 0 ) {
+                                        signalled = true;
+                                        blocker.set_value();
+                                    }
                                 }
                             }
                         }
@@ -238,17 +241,18 @@ FSL_MAIN(
                         "   cat commands.txt | wright-exec-helper\n"
                         "instead of\n"
                         "   wright-exec-helper < commands.txt" << std::endl;
-                    exit(2);
+                    std::exit(2);
                 }
             }
             boost::asio::spawn(ios, exception_decorator([&](auto yield) {
-                    f5::eventfd::limiter limit{ios, yield, children.size()};
+                    f5::eventfd::limiter limit{ios, yield, children.size() * buffer_size};
                     boost::asio::streambuf buffer;
                     while ( as_stdin.is_open() ) {
                         boost::system::error_code error;
                         auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
                         if ( error ) {
-                            break;
+                            in_closed = true;
+                            return;
                         } else if ( bytes ) {
                             buffer.commit(bytes);
                             std::istream in(&buffer);
@@ -256,26 +260,25 @@ FSL_MAIN(
                             std::getline(in, line);
                             auto task = ++limit; // Must do this first so it can block
                             for ( auto &child : children ) {
-                                if ( not child.task ) {
+                                if ( not child.commands.full() ) {
                                     child.write(ios, line, yield);
-                                    child.task = task;
+                                    child.commands.push_back(std::make_pair(line, std::move(task)));
                                     break;
                                 }
                             }
                         }
                     }
-                    in_closed = true;
                 }));
 
             /// This needs to block here until all processing is done
             auto blocker_ready = blocker.get_future();
             blocker_ready.wait();
-        }
 
-        /// Terminating. Wait for children
-        for ( auto &child : children ) {
-            child.close();
-            waitpid(child.pid, nullptr, 0);
+            /// Terminating. Wait for children
+            for ( auto &child : children ) {
+                child.close();
+                waitpid(child.pid, nullptr, 0);
+            }
         }
     }
     return 0;
