@@ -1,5 +1,5 @@
 /*
-    Copyright 2016, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2016-2017, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -9,6 +9,7 @@
 #define BOOST_COROUTINES_NO_DEPRECATION_WARNING
 #define BOOST_COROUTINE_NO_DEPRECATION_WARNING
 
+#include <wright/echo.hpp>
 #include <wright/port.hpp>
 
 #include <f5/threading/boost-asio.hpp>
@@ -22,14 +23,10 @@
 #include <boost/circular_buffer.hpp>
 
 #include <future>
-#include <random>
 
 #include <sys/wait.h>
 
 #include <cxxabi.h>
-
-
-using namespace std::chrono_literals;
 
 
 namespace {
@@ -59,34 +56,6 @@ namespace {
                 }
             };
         };
-
-    void echo(std::istream &in, fostlib::ostream &out) {
-        decltype(std::chrono::high_resolution_clock::now()) from{}, to{};
-        const auto epoch = from.time_since_epoch();
-        decltype(to - from) total{};
-        unsigned int captures{};
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::normal_distribution<float> rand(1000, 500);
-
-        std::string command;
-        while ( in ) {
-            std::getline(in, command);
-            if ( in && not command.empty() ) {
-                to = std::chrono::high_resolution_clock::now();
-                if ( epoch < from.time_since_epoch() ) {
-                    total += (to - from);
-                    ++captures;
-                }
-                std::this_thread::sleep_for(rand(gen) * 1ms);
-                from = std::chrono::high_resolution_clock::now();
-                out << command << std::endl;
-            }
-        }
-        auto us = std::chrono::duration_cast<std::chrono::microseconds>(total).count();
-        std::cerr << (us / captures) << "us across " << captures << " loops" << std::endl;
-    }
 }
 
 
@@ -155,7 +124,7 @@ FSL_MAIN(
 
     if ( c_child.value() ) {
         /// Child process needs to do the right thing
-        echo(std::cin, out);
+        wright::echo(std::cin, out, std::cerr);
     } else {
         /// The parent sets up the communications redirects etc and spawns
         /// child processes
