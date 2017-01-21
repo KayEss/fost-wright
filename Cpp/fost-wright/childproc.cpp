@@ -9,15 +9,23 @@
 #include <wright/childproc.hpp>
 
 
+namespace {
+    const struct newl {
+        newl() {
+            buffer.sputc('\n');
+        }
+        boost::asio::streambuf buffer;
+    } newline;
+}
+
+
 void wright::childproc::write(
     boost::asio::io_service &ios,
     const std::string &command,
     boost::asio::yield_context &yield
 ) {
-    boost::asio::streambuf newline;
-    newline.sputc('\n');
     std::array<boost::asio::streambuf::const_buffers_type, 2>
-        buffer{{{command.data(), command.size()}, newline.data()}};
+        buffer{{{command.data(), command.size()}, newline.buffer.data()}};
     boost::asio::async_write(stdin.parent(ios), buffer, yield);
 }
 
