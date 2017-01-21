@@ -6,9 +6,6 @@
 */
 
 
-#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
-#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
-
 #include <wright/childproc.hpp>
 #include <wright/echo.hpp>
 
