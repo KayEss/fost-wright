@@ -11,6 +11,7 @@
 
 #include <f5/threading/boost-asio.hpp>
 #include <fost/cli>
+#include <fost/counter>
 #include <fost/main>
 #include <fost/unicode>
 
@@ -50,6 +51,10 @@ namespace {
                 }
             };
         };
+
+    const fostlib::module exec_helper("exec_helper");
+    fostlib::performance p_accepted(exec_helper, "jobs", "accepted");
+    fostlib::performance p_completed(exec_helper, "jobs", "completed");
 }
 
 
@@ -123,6 +128,7 @@ FSL_MAIN(
                         boost::system::error_code error;
                         auto ret = cp->read(ios, buffer, yield[error]);
                         if ( not error && not ret.empty() ) {
+                            ++p_completed;
                             cp->commands.pop_front();
                             out << ret << std::endl;
                             if ( in_closed && not signalled ) {
@@ -172,6 +178,7 @@ FSL_MAIN(
                             if ( not child.commands.full() ) {
                                 child.write(ios, line, yield);
                                 child.commands.push_back(std::make_pair(line, std::move(task)));
+                                ++p_accepted;
                                 break;
                             }
                         }
@@ -188,7 +195,10 @@ FSL_MAIN(
             child.close();
             waitpid(child.pid, nullptr, 0);
         }
+
+        std::cerr << fostlib::performance::current() << std::endl;
     }
+
     return 0;
 }
 
