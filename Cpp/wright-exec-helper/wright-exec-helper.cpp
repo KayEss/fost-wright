@@ -32,19 +32,21 @@ namespace {
         "Children", std::thread::hardware_concurrency(), true);
 
 
-    const auto exception_decorator = [](auto fn/*, std::function<void(void)> recov = [](){}*/) {
+//     const auto noop = [](){};
+    const auto rethrow = []() { throw; };
+    const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {
         return [=](auto &&...a) {
                 try {
-                    fn(a...);
+                    return fn(a...);
                 } catch ( boost::coroutines::detail::forced_unwind & ) {
                     throw;
                 } catch ( std::exception &e ) {
                     std::cerr << e.what() << ": " << c_child.value() << std::endl;
-                    throw;
+                    return recov();
                 } catch ( ... ) {
                     std::cerr << "Unkown exception: " << c_child.value() << " - "
                         << __cxxabiv1::__cxa_current_exception_type()->name() << std::endl;
-                    throw;
+                    return recov();
                 }
             };
         };
