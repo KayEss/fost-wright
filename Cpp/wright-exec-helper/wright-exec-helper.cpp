@@ -9,18 +9,16 @@
 #define BOOST_COROUTINES_NO_DEPRECATION_WARNING
 #define BOOST_COROUTINE_NO_DEPRECATION_WARNING
 
+#include <wright/childproc.hpp>
 #include <wright/echo.hpp>
-#include <wright/port.hpp>
 
 #include <f5/threading/boost-asio.hpp>
-#include <f5/threading/eventfd.hpp>
 #include <fost/cli>
 #include <fost/main>
 #include <fost/unicode>
 
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
-#include <boost/circular_buffer.hpp>
 
 #include <future>
 
@@ -35,9 +33,6 @@ namespace {
         "Child", 0, true);
     const fostlib::setting<int64_t> c_children(__FILE__, "wright-exec-helper",
         "Children", std::thread::hardware_concurrency(), true);
-
-    /// The buffer size for each child
-    const std::size_t buffer_size = 3;
 
 
     const auto exception_decorator = [](auto fn/*, std::function<void(void)> recov = [](){}*/) {
@@ -59,59 +54,6 @@ namespace {
 }
 
 
-struct childproc {
-    wright::pipe_in stdin;
-    wright::pipe_out stdout;
-
-    int pid;
-    boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
-
-    childproc()
-    : commands(buffer_size) {
-    }
-    childproc(const childproc &) = delete;
-    childproc &operator = (const childproc &) = delete;
-
-    /// Send a job to the child
-    void write(
-        boost::asio::io_service &ios,
-        const std::string &command,
-        boost::asio::yield_context &yield
-    ) {
-        boost::asio::streambuf newline;
-        newline.sputc('\n');
-        std::array<boost::asio::streambuf::const_buffers_type, 2>
-            buffer{{{command.data(), command.size()}, newline.data()}};
-        boost::asio::async_write(stdin.parent(ios), buffer, yield);
-    }
-    /// Read the job that the child has done
-    std::string read(
-        boost::asio::io_service &ios,
-        boost::asio::streambuf &buffer,
-        boost::asio::yield_context yield
-    ) {
-        auto bytes = boost::asio::async_read_until(stdout.parent(ios), buffer, '\n', yield);
-        if ( bytes ) {
-            buffer.commit(bytes);
-            std::istream in(&buffer);
-            std::string line;
-            std::getline(in, line);
-            return line;
-        }
-        return std::string();
-    }
-
-    void close() {
-        stdout.close();
-        stdin.close();
-    }
-
-    ~childproc() {
-        close();
-    }
-};
-
-
 FSL_MAIN(
     L"wright-exec-helper",
     L"Wright execution helper\nCopyright (c) 2016, Felspar Co. Ltd."
@@ -128,7 +70,7 @@ FSL_MAIN(
     } else {
         /// The parent sets up the communications redirects etc and spawns
         /// child processes
-        std::vector<childproc> children(c_children.value());
+        std::vector<wright::childproc> children(c_children.value());
 
         /// Set up the argument vector for the child
         const auto command = c_exec.value();
@@ -213,7 +155,7 @@ FSL_MAIN(
             }
         }
         boost::asio::spawn(ios, exception_decorator([&](auto yield) {
-                f5::eventfd::limiter limit{ios, yield, children.size() * buffer_size};
+                f5::eventfd::limiter limit{ios, yield, children.size() * wright::buffer_size};
                 boost::asio::streambuf buffer;
                 while ( as_stdin.is_open() ) {
                     boost::system::error_code error;
