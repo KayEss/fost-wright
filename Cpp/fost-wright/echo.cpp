@@ -12,6 +12,8 @@
 #include <random>
 #include <thread>
 
+#include <unistd.h>
+
 
 using namespace std::chrono_literals;
 
@@ -36,8 +38,17 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
                 ++captures;
             }
             std::this_thread::sleep_for(rand(gen) * 1ms);
+            if ( rand(gen) > 1700 ) {
+                report << "Crash during work... " << ::getpid() << std::endl;
+                exit(3); // Simulate a crash
+            }
             from = std::chrono::high_resolution_clock::now();
             out << command << std::endl;
+        }
+        if ( rand(gen) > 1700 ) {
+            out << "Uh oh, crashed" << std::endl;
+            report << "Crash after work... " << ::getpid() << std::endl;
+            exit(2); // Simulate a crash
         }
     }
     auto us = std::chrono::duration_cast<std::chrono::microseconds>(total).count();

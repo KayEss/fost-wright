@@ -31,7 +31,11 @@ namespace wright {
         pipe_in stdin;
         pipe_out stdout;
 
+        /// The command line argument list for the child process
+        std::vector<char const *> argv;
+        /// The PID that the child gets
         int pid;
+        /// The current queue
         boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
 
         childproc()
@@ -42,6 +46,21 @@ namespace wright {
 
         ~childproc() {
             close();
+        }
+
+        /// Execute the process. Perform the clean up before making the execvpe call
+        template<typename F>
+        void fork_exec(F tidy) {
+            pid = ::fork();
+            if ( pid < 0 ) {
+                throw std::system_error(errno, std::system_category());
+            } else if ( pid == 0 ) {
+                dup2(stdin.child(), STDIN_FILENO);
+                dup2(stdout.child(), STDOUT_FILENO);
+                auto argv_copy = argv;
+                tidy();
+                ::execvp(argv_copy[0], const_cast<char *const *>(argv_copy.data()));
+            }
         }
 
         /// Send a job to the child

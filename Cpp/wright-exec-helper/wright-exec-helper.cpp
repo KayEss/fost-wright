@@ -20,7 +20,9 @@
 
 #include <future>
 
+#include <signal.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <cxxabi.h>
 
@@ -55,6 +57,25 @@ namespace {
     const fostlib::module exec_helper("exec_helper");
     fostlib::performance p_accepted(exec_helper, "jobs", "accepted");
     fostlib::performance p_completed(exec_helper, "jobs", "completed");
+
+    /// Pipe used to signall the event loop that a child has died
+    std::unique_ptr<wright::pipe_out> sigchild;
+
+    void sigchild_handler(int sig) {
+        const char child[] = "c";
+        /// Write a single byte into the pipe
+        ::write(sigchild->child(), child, 1u);
+    }
+    void attach_sigchild_handler() {
+        struct sigaction sa;
+        ::sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0; // No options needed
+        sa.sa_handler = sigchild_handler;
+        if ( ::sigaction(SIGCHLD, &sa, nullptr) < 0 ) {
+            throw fostlib::exceptions::not_implemented(__func__,
+                "Failed to establish signal handler for SIGCHLD");
+        }
+    }
 }
 
 
@@ -90,18 +111,15 @@ FSL_MAIN(
 
         /// For each child go through and fork and execvpe it
         for ( auto child = 0; child < c_children.value(); ++child ) {
+            children[child].argv = argv;
             auto child_number = std::to_string(child + 1);
-            argv[2] = child_number.c_str();
-            children[child].pid = fork();
-            if ( children[child].pid < 0 ) {
-                throw std::system_error(errno, std::system_category());
-            } else if ( children[child].pid == 0 ) {
-                dup2(children[child].stdin.child(), STDIN_FILENO);
-                dup2(children[child].stdout.child(), STDOUT_FILENO);
-                children.clear(); // closes the pipes in this process
-                execvp(argv[0], const_cast<char *const *>(argv.data()));
-            }
+            children[child].argv[2] = child_number.c_str();
+            children[child].fork_exec([&]() { children.clear(); });
         }
+        /// Now that we have children, we're going to want to deal with
+        /// their deaths
+        sigchild = std::make_unique<wright::pipe_out>();
+        attach_sigchild_handler();
 
         /// Set up a promise that we're going to wait to finish on
         std::promise<void> blocker;
@@ -127,9 +145,10 @@ FSL_MAIN(
                     while ( cp->stdout.parent(ios).is_open() ) {
                         boost::system::error_code error;
                         auto ret = cp->read(ios, buffer, yield[error]);
-                        if ( not error && not ret.empty() ) {
+                        if ( not error && not ret.empty() && ret == cp->commands.front().first ) {
                             ++p_completed;
                             cp->commands.pop_front();
+                            std::cerr << cp->pid << ": " << ret << std::endl;
                             out << ret << std::endl;
                             if ( in_closed && not signalled ) {
                                 const auto working = std::count_if(children.begin(), children.end(),
@@ -139,10 +158,48 @@ FSL_MAIN(
                                     blocker.set_value();
                                 }
                             }
+                        } else if ( error ) {
+                            std::cerr << cp->pid << " read error: " << error << std::endl;
+                        } else if ( not ret.empty() ) {
+                            auto &command = cp->commands.front().first;
+                            std::cerr << cp->pid << " ignored " <<
+                                (ret == command ? "equal" : "not-equal") <<
+                                "\n  input   : '" << ret << "' "<< ret.size() <<
+                                "\n  expected: '" << command << "' " << command.size() << std::endl;
                         }
                     }
+                    std::cerr << cp->pid << " done" << std::endl;
                 }));
         }
+        /// Process the other end of the signal handler pipe
+        boost::asio::spawn(ios, exception_decorator([&](auto yield) {
+            boost::asio::streambuf buffer;
+            while ( sigchild->parent(ios).is_open() ) {
+                auto bytes = boost::asio::async_read(sigchild->parent(ios), buffer,
+                    boost::asio::transfer_exactly(1), yield);
+                if ( bytes ) {
+                    switch ( char byte = buffer.sbumpc() ) {
+                    default:
+                        std::cerr << "Got signal byte " << int(byte) << std::endl;
+                        break;
+                    case 'c':
+                        for ( auto &child : children ) {
+                            if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
+                                std::cerr << child.pid << " dead. Restarting...";
+                                ios.notify_fork(boost::asio::io_service::fork_prepare);
+                                child.fork_exec([&]() { children.clear(); });
+                                ios.notify_fork(boost::asio::io_service::fork_parent);
+                                std::cerr << child.pid << std::endl;
+                                for ( auto &job : child.commands ) {
+                                    std::cerr << "Resending job: " << job.first << std::endl;
+                                    child.write(ios, job.first, yield);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }));
 
         /// This process now needs to read from stdin and queue the jobs
         boost::asio::posix::stream_descriptor as_stdin(ios);
@@ -166,6 +223,7 @@ FSL_MAIN(
                     boost::system::error_code error;
                     auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
                     if ( error ) {
+                        std::cerr << "Input pipe error " << error << " bytes: " << bytes << std::endl;
                         in_closed = true;
                         return;
                     } else if ( bytes ) {
@@ -184,6 +242,8 @@ FSL_MAIN(
                         }
                     }
                 }
+                std::cerr << "Input processing done" << std::endl;
+                in_closed = true;
             }));
 
         /// This needs to block here until all processing is done

@@ -8,6 +8,8 @@
 
 #include <wright/childproc.hpp>
 
+#include <iostream>
+
 
 namespace {
     const struct newl {
@@ -35,12 +37,27 @@ std::string wright::childproc::read(
     boost::asio::streambuf &buffer,
     boost::asio::yield_context yield
 ) {
-    auto bytes = boost::asio::async_read_until(stdout.parent(ios), buffer, '\n', yield);
-    if ( bytes ) {
-        buffer.commit(bytes);
-        std::istream in(&buffer);
+    boost::system::error_code error;
+    auto bytes = boost::asio::async_read_until(stdout.parent(ios), buffer, '\n', yield[error]);
+    if ( error ) {
+        std::cerr << pid << " read error: " << error << std::endl;
+    } else if ( bytes ) {
+        /// For some reason I totally fail to understand we can actually
+        /// end up reading a sequence of zero byte values at the start
+        /// of the line. These need to be filtered out as they appear to
+        /// be totally spurious. They fail the string comparison when we
+        /// check if the line read matches the job we sent.
+        std::cerr << pid << " read " << bytes << std::endl;
         std::string line;
-        std::getline(in, line);
+        line.reserve(bytes);
+        for ( ; bytes; --bytes ) {
+            char next = buffer.sbumpc();
+            if ( next == 0 || next == '\n' ) {
+                std::cerr << pid << " dropped " << int(next) << std::endl;
+            } else {
+                line += next;
+            }
+        }
         return line;
     }
     return std::string();
