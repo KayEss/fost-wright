@@ -29,7 +29,7 @@ namespace wright {
 
     struct childproc final {
         pipe_in stdin;
-        pipe_out stdout;
+        pipe_out stdout, stderr, resend;
 
         /// The command line argument list for the child process
         std::vector<char const *> argv;
@@ -57,6 +57,7 @@ namespace wright {
             } else if ( pid == 0 ) {
                 dup2(stdin.child(), STDIN_FILENO);
                 dup2(stdout.child(), STDOUT_FILENO);
+                dup2(stderr.child(), STDERR_FILENO);
                 auto argv_copy = argv;
                 tidy();
                 ::execvp(argv_copy[0], const_cast<char *const *>(argv_copy.data()));

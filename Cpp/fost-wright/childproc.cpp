@@ -47,13 +47,16 @@ std::string wright::childproc::read(
         /// of the line. These need to be filtered out as they appear to
         /// be totally spurious. They fail the string comparison when we
         /// check if the line read matches the job we sent.
-        std::cerr << pid << " read " << bytes << std::endl;
+        ///
+        /// At least that can happen if we give the buffer to a
+        /// `std::istream`. It doesn't seem to happen when pulling the
+        /// characters off one at a time.
         std::string line;
         line.reserve(bytes);
         for ( ; bytes; --bytes ) {
             char next = buffer.sbumpc();
             if ( next == 0 || next == '\n' ) {
-                std::cerr << pid << " dropped " << int(next) << std::endl;
+//                 std::cerr << pid << " dropped " << int(next) << std::endl;
             } else {
                 line += next;
             }

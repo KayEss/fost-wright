@@ -33,6 +33,10 @@ namespace {
         "Child", 0, true);
     const fostlib::setting<int64_t> c_children(__FILE__, "wright-exec-helper",
         "Children", std::thread::hardware_concurrency(), true);
+    const fostlib::setting<bool> c_simulate(__FILE__, "wright-exec-helper",
+        "Simulate", false, true);
+    const fostlib::setting<int> c_resend_fd(__FILE__, "wright-exec-helper",
+        "Resend FD", 0, true);
 
 
 //     const auto noop = [](){};
@@ -88,10 +92,41 @@ FSL_MAIN(
         "Execute", args[0].value(), true);
     args.commandSwitch("c", c_child);
     args.commandSwitch("w", c_children);
+    args.commandSwitch("rfd", c_resend_fd);
+    args.commandSwitch("x", c_simulate);
 
-    if ( c_child.value() ) {
+    if ( c_simulate.value() ) {
         /// Child process needs to do the right thing
         wright::echo(std::cin, out, std::cerr);
+    } else if ( c_child.value() ) {
+        std::vector<char const *> argv;
+        const auto command = c_exec.value();
+        argv.push_back(command.c_str());
+        argv.push_back("-x"); // Simulate
+        argv.push_back("true");
+        argv.push_back("-b"); // No banner
+        argv.push_back("false");
+        argv.push_back(nullptr);
+        /// Fork and loop until done
+        while ( true ) {
+            int pid = ::fork();
+            if ( pid < 0 ) {
+                std::cerr << "Fork failed" << std::endl;
+                exit(5);
+            } else if ( pid == 0 ) {
+                ::execvp(argv[0], const_cast<char *const*>(argv.data()));
+            } else {
+                std::cerr << pid << " started. Resend FD: " << c_resend_fd.value() << std::endl;
+                int status;
+                auto waited = waitpid(pid, &status, 0);
+                std::cerr << "Child done " << waited << " status " << status << std::endl;
+                if ( status == 0 ) break;
+                /// Send a resend instruction to the parent process
+                const char resend[] = "r";
+                /// Write a single byte into the pipe
+                std::cerr << "Write resend request " << ::write(c_resend_fd.value(), resend, 1u) << std::endl;
+            }
+        }
     } else {
         /// The parent sets up the communications redirects etc and spawns
         /// child processes
@@ -106,6 +141,8 @@ FSL_MAIN(
             argv.push_back(nullptr); // holder for the child number
             argv.push_back("-b"); // No banner
             argv.push_back("false");
+            argv.push_back("-rfd"); // Rsend FD number
+            argv.push_back(nullptr); // holder for the FD number
         }
         argv.push_back(nullptr);
 
@@ -114,6 +151,8 @@ FSL_MAIN(
             children[child].argv = argv;
             auto child_number = std::to_string(child + 1);
             children[child].argv[2] = child_number.c_str();
+            auto resend_fd = std::to_string(::dup(children[child].resend.child()));
+            children[child].argv[6] = resend_fd.c_str();
             children[child].fork_exec([&]() { children.clear(); });
         }
         /// Now that we have children, we're going to want to deal with
@@ -126,6 +165,10 @@ FSL_MAIN(
         /// Flag to tell us if the input stream has completed (closed)
         /// yet and if the blocker has been signalled
         bool in_closed{false}, signalled{false};
+
+        /// Add in some tracking for now so we can make sure that we have all
+        /// of the jobs done
+        std::set<std::string> requested, completed;
 
         /// Stop on exception, one thread. We want one thread here so
         /// we don't have to worry about thread synchronisation when
@@ -150,6 +193,7 @@ FSL_MAIN(
                             cp->commands.pop_front();
                             std::cerr << cp->pid << ": " << ret << std::endl;
                             out << ret << std::endl;
+                            completed.insert(ret);
                             if ( in_closed && not signalled ) {
                                 const auto working = std::count_if(children.begin(), children.end(),
                                         [](const auto &c) { return not c.commands.empty(); });
@@ -170,6 +214,54 @@ FSL_MAIN(
                     }
                     std::cerr << cp->pid << " done" << std::endl;
                 }));
+            /// We also need to watch for a resend alert from the child process
+            boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
+                boost::asio::streambuf buffer;
+                while ( cp->resend.parent(ios).is_open() ) {
+                    auto bytes = boost::asio::async_read(cp->resend.parent(ios), buffer,
+                        boost::asio::transfer_exactly(1), yield);
+                    if ( bytes ) {
+                        switch ( char byte = buffer.sbumpc() ) {
+                        default:
+                            std::cerr << "Got resend byte " << int(byte) << std::endl;
+                            break;
+                        case 'r':
+                            if ( signalled ) {
+                                /// The work is done, but the child seems
+                                /// to be looping in an error. Kill it
+                                ::kill(cp->pid, SIGINT);
+                            } else {
+                                std::cerr << "Child wants resend of jobs: " << cp->commands.size() << std::endl;
+                                for ( auto &job : cp->commands ) {
+                                    std::cerr << "Resending: " << job.first << std::endl;
+                                    cp->write(ios, job.first, yield);
+                                }
+                            }
+                        }
+                    }
+                }
+            }));
+            /// Finally, drain the child's stderr
+            boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
+                boost::asio::streambuf buffer;
+                std::string line;
+                while ( cp->stderr.parent(ios).is_open() ) {
+                    boost::system::error_code error;
+                    auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
+                    if ( error ) {
+                        std::cerr << "Input pipe error " << error << " bytes: " << bytes << std::endl;
+                        in_closed = true;
+                        return;
+                    } else if ( bytes ) {
+                        while ( bytes-- ) {
+                            char next = buffer.sbumpc();
+                            if ( next != '\n' ) line += next;
+                        }
+                        std::cerr << line << std::endl;
+                        line.clear();
+                    }
+                }
+            }));
         }
         /// Process the other end of the signal handler pipe
         boost::asio::spawn(ios, exception_decorator([&](auto yield) {
@@ -185,15 +277,8 @@ FSL_MAIN(
                     case 'c':
                         for ( auto &child : children ) {
                             if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
-                                std::cerr << child.pid << " dead. Restarting...";
-                                ios.notify_fork(boost::asio::io_service::fork_prepare);
-                                child.fork_exec([&]() { children.clear(); });
-                                ios.notify_fork(boost::asio::io_service::fork_parent);
-                                std::cerr << child.pid << std::endl;
-                                for ( auto &job : child.commands ) {
-                                    std::cerr << "Resending job: " << job.first << std::endl;
-                                    child.write(ios, job.first, yield);
-                                }
+                                std::cerr << child.pid << " dead. Time to PANIC..." << std::endl;
+                                std::exit(4);
                             }
                         }
                     }
@@ -236,6 +321,7 @@ FSL_MAIN(
                             if ( not child.commands.full() ) {
                                 child.write(ios, line, yield);
                                 child.commands.push_back(std::make_pair(line, std::move(task)));
+                                requested.insert(line);
                                 ++p_accepted;
                                 break;
                             }
@@ -252,11 +338,13 @@ FSL_MAIN(
 
         /// Terminating. Wait for children
         for ( auto &child : children ) {
-            child.close();
+            child.stdin.close();
             waitpid(child.pid, nullptr, 0);
         }
 
         std::cerr << fostlib::performance::current() << std::endl;
+        const bool success = (requested == completed);
+        std::cerr << (success ? "All done" : "Some wrong") << std::endl;
     }
 
     return 0;
