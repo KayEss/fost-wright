@@ -96,7 +96,7 @@ FSL_MAIN(
     args.commandSwitch("x", c_simulate);
 
     if ( c_simulate.value() ) {
-        /// Child process needs to do the right thing
+        /// Simulate work by sleeping, and also keep crashing
         wright::echo(std::cin, out, std::cerr);
     } else if ( c_child.value() ) {
         std::vector<char const *> argv;
