@@ -27,6 +27,7 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::normal_distribution<float> rand(1000, 500);
+    const auto crash_limit = 1500;
 
     std::string command;
     while ( in ) {
@@ -38,14 +39,14 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
                 ++captures;
             }
             std::this_thread::sleep_for(rand(gen) * 1ms);
-            if ( rand(gen) > 1700 ) {
+            if ( rand(gen) > crash_limit ) {
                 report << "Crash during work... " << ::getpid() << std::endl;
                 exit(3); // Simulate a crash
             }
             from = std::chrono::high_resolution_clock::now();
             out << command << std::endl;
         }
-        if ( rand(gen) > 1700 ) {
+        if ( rand(gen) > crash_limit ) {
             out << "Uh oh, crashed" << std::endl;
             report << "Crash after work... " << ::getpid() << std::endl;
             exit(2); // Simulate a crash
