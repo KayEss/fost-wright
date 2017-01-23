@@ -6,7 +6,7 @@
 */
 
 
-#include <wright/echo.hpp>
+#include <wright/exec.hpp>
 
 #include <chrono>
 #include <random>

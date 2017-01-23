@@ -6,9 +6,9 @@
 */
 
 
-#include <wright/childproc.hpp>
 #include <wright/configuration.hpp>
-#include <wright/echo.hpp>
+#include <wright/exec.hpp>
+#include <wright/exec.childproc.hpp>
 
 #include <f5/threading/boost-asio.hpp>
 #include <fost/cli>

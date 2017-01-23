@@ -6,8 +6,8 @@
 */
 
 
-#include <wright/childproc.hpp>
 #include <wright/configuration.hpp>
+#include <wright/exec.childproc.hpp>
 
 #include <iostream>
 
