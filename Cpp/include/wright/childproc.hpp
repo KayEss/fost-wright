@@ -15,7 +15,7 @@
 
 #include <f5/threading/eventfd.hpp>
 
-#include <wright/port.hpp>
+#include <wright/pipe.hpp>
 
 #include <boost/circular_buffer.hpp>
 
