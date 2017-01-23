@@ -15,6 +15,11 @@
 namespace wright {
 
 
+    /// Modules describing the system
+    extern const fostlib::module c_wright;
+    extern const fostlib::module c_exec_helper;
+
+
     /// The child number. Zero means the parent process
     extern const fostlib::setting<int64_t> c_child;
     /// The number of children to spawn

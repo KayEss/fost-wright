@@ -49,9 +49,8 @@ namespace {
             };
         };
 
-    const fostlib::module exec_helper("exec_helper");
-    fostlib::performance p_accepted(exec_helper, "jobs", "accepted");
-    fostlib::performance p_completed(exec_helper, "jobs", "completed");
+    fostlib::performance p_accepted(wright::c_exec_helper, "jobs", "accepted");
+    fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
 
     /// Pipe used to signall the event loop that a child has died
     std::unique_ptr<wright::pipe_out> sigchild;

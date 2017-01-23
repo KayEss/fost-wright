@@ -11,6 +11,10 @@
 #include <thread>
 
 
+const fostlib::module wright::c_wright("wright");
+const fostlib::module wright::c_exec_helper(c_wright, "exec-helper");
+
+
 const fostlib::setting<int64_t> wright::c_child(
     __FILE__, "wright-exec-helper", "Child", 0, true);
 
