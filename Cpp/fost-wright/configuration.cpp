@@ -30,3 +30,4 @@ const fostlib::setting<int> wright::c_resend_fd(
 
 const fostlib::setting<fostlib::string> wright::c_exec(
     __FILE__, "wright-exec-helper", "Execute", "wright-exec-helper", true);
+
