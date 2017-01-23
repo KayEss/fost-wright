@@ -7,8 +7,49 @@
 
 
 #include <wright/childproc.hpp>
+#include <wright/configuration.hpp>
 
 #include <iostream>
+
+#include <sys/wait.h>
+
+
+void wright::fork_worker() {
+    std::vector<char const *> argv;
+    const auto command = c_exec.value();
+    argv.push_back(command.c_str());
+    argv.push_back("-x"); // Simulate
+    argv.push_back("true");
+    argv.push_back("-b"); // No banner
+    argv.push_back("false");
+    argv.push_back(nullptr);
+    /// Fork and loop until done
+    while ( true ) {
+        int pid = ::fork();
+        if ( pid < 0 ) {
+            std::cerr << "Fork failed" << std::endl;
+            exit(5);
+        } else if ( pid == 0 ) {
+            ::execvp(argv[0], const_cast<char *const*>(argv.data()));
+        } else {
+            std::cerr << pid << " started. Resend FD: " << wright::c_resend_fd.value() << std::endl;
+            int status;
+            auto waited = waitpid(pid, &status, 0);
+            std::cerr << "Child done " << waited << " status " << status << std::endl;
+            if ( status == 0 ) break;
+            /// Send a resend instruction to the parent process
+            const char resend[] = "r";
+            /// Write a single byte into the pipe
+            std::cerr << "Write resend request "
+                << ::write(wright::c_resend_fd.value(), resend, 1u) << std::endl;
+        }
+    }
+}
+
+
+/*
+ * wright::childproc
+ */
 
 
 namespace {

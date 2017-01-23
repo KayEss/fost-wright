@@ -27,6 +27,10 @@ namespace wright {
     const std::size_t buffer_size = 3;
 
 
+    /// The main body loop for the child process
+    void fork_worker();
+
+
     struct childproc final {
         pipe_in stdin;
         pipe_out stdout, stderr, resend;

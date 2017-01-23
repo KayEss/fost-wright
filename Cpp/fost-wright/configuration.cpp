@@ -24,3 +24,5 @@ const fostlib::setting<bool> wright::c_simulate(
 const fostlib::setting<int> wright::c_resend_fd(
     __FILE__, "wright-exec-helper", "Resend FD", 0, true);
 
+const fostlib::setting<fostlib::string> wright::c_exec(
+    __FILE__, "wright-exec-helper", "Execute", "wright-exec-helper", true);

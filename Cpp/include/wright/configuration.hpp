@@ -23,6 +23,8 @@ namespace wright {
     extern const fostlib::setting<bool> c_simulate;
     /// The file descriptor to use for resend notificaitons
     extern const fostlib::setting<int> c_resend_fd;
+    /// The child program to execute
+    extern const fostlib::setting<fostlib::string> c_exec;
 
 
 }

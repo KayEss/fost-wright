@@ -31,7 +31,6 @@
 namespace {
 
 
-//     const auto noop = [](){};
     const auto rethrow = []() { throw; };
     const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {
         return [=](auto &&...a) {
@@ -80,8 +79,7 @@ FSL_MAIN(
     L"Wright execution helper\nCopyright (c) 2016, Felspar Co. Ltd."
 )( fostlib::ostream &out, fostlib::arguments &args ) {
     /// Configure settings
-    const fostlib::setting<fostlib::string> c_exec(__FILE__, "wright-exec-helper",
-        "Execute", args[0].value(), true);
+    const fostlib::setting<fostlib::string> exec(__FILE__, wright::c_exec, args[0].value());
     args.commandSwitch("c", wright::c_child);
     args.commandSwitch("w", wright::c_children);
     args.commandSwitch("rfd", wright::c_resend_fd);
@@ -91,42 +89,14 @@ FSL_MAIN(
         /// Simulate work by sleeping, and also keep crashing
         wright::echo(std::cin, out, std::cerr);
     } else if ( wright::c_child.value() ) {
-        std::vector<char const *> argv;
-        const auto command = c_exec.value();
-        argv.push_back(command.c_str());
-        argv.push_back("-x"); // Simulate
-        argv.push_back("true");
-        argv.push_back("-b"); // No banner
-        argv.push_back("false");
-        argv.push_back(nullptr);
-        /// Fork and loop until done
-        while ( true ) {
-            int pid = ::fork();
-            if ( pid < 0 ) {
-                std::cerr << "Fork failed" << std::endl;
-                exit(5);
-            } else if ( pid == 0 ) {
-                ::execvp(argv[0], const_cast<char *const*>(argv.data()));
-            } else {
-                std::cerr << pid << " started. Resend FD: " << wright::c_resend_fd.value() << std::endl;
-                int status;
-                auto waited = waitpid(pid, &status, 0);
-                std::cerr << "Child done " << waited << " status " << status << std::endl;
-                if ( status == 0 ) break;
-                /// Send a resend instruction to the parent process
-                const char resend[] = "r";
-                /// Write a single byte into the pipe
-                std::cerr << "Write resend request "
-                    << ::write(wright::c_resend_fd.value(), resend, 1u) << std::endl;
-            }
-        }
+        wright::fork_worker();
     } else {
         /// The parent sets up the communications redirects etc and spawns
         /// child processes
         std::vector<wright::childproc> children(wright::c_children.value());
 
         /// Set up the argument vector for the child
-        const auto command = c_exec.value();
+        const auto command = wright::c_exec.value();
         std::vector<char const *> argv;
         argv.push_back(command.c_str());
         if ( command == argv[0] ) {
