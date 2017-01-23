@@ -7,6 +7,7 @@
 
 
 #include <wright/childproc.hpp>
+#include <wright/configuration.hpp>
 #include <wright/echo.hpp>
 
 #include <f5/threading/boost-asio.hpp>
@@ -28,15 +29,6 @@
 
 
 namespace {
-    /// The child number. Zero means the parent process
-    const fostlib::setting<int64_t> c_child(__FILE__, "wright-exec-helper",
-        "Child", 0, true);
-    const fostlib::setting<int64_t> c_children(__FILE__, "wright-exec-helper",
-        "Children", std::thread::hardware_concurrency(), true);
-    const fostlib::setting<bool> c_simulate(__FILE__, "wright-exec-helper",
-        "Simulate", false, true);
-    const fostlib::setting<int> c_resend_fd(__FILE__, "wright-exec-helper",
-        "Resend FD", 0, true);
 
 
 //     const auto noop = [](){};
@@ -48,10 +40,10 @@ namespace {
                 } catch ( boost::coroutines::detail::forced_unwind & ) {
                     throw;
                 } catch ( std::exception &e ) {
-                    std::cerr << e.what() << ": " << c_child.value() << std::endl;
+                    std::cerr << e.what() << ": " << wright::c_child.value() << std::endl;
                     return recov();
                 } catch ( ... ) {
-                    std::cerr << "Unkown exception: " << c_child.value() << " - "
+                    std::cerr << "Unkown exception: " << wright::c_child.value() << " - "
                         << __cxxabiv1::__cxa_current_exception_type()->name() << std::endl;
                     return recov();
                 }
@@ -90,15 +82,15 @@ FSL_MAIN(
     /// Configure settings
     const fostlib::setting<fostlib::string> c_exec(__FILE__, "wright-exec-helper",
         "Execute", args[0].value(), true);
-    args.commandSwitch("c", c_child);
-    args.commandSwitch("w", c_children);
-    args.commandSwitch("rfd", c_resend_fd);
-    args.commandSwitch("x", c_simulate);
+    args.commandSwitch("c", wright::c_child);
+    args.commandSwitch("w", wright::c_children);
+    args.commandSwitch("rfd", wright::c_resend_fd);
+    args.commandSwitch("x", wright::c_simulate);
 
-    if ( c_simulate.value() ) {
+    if ( wright::c_simulate.value() ) {
         /// Simulate work by sleeping, and also keep crashing
         wright::echo(std::cin, out, std::cerr);
-    } else if ( c_child.value() ) {
+    } else if ( wright::c_child.value() ) {
         std::vector<char const *> argv;
         const auto command = c_exec.value();
         argv.push_back(command.c_str());
@@ -116,7 +108,7 @@ FSL_MAIN(
             } else if ( pid == 0 ) {
                 ::execvp(argv[0], const_cast<char *const*>(argv.data()));
             } else {
-                std::cerr << pid << " started. Resend FD: " << c_resend_fd.value() << std::endl;
+                std::cerr << pid << " started. Resend FD: " << wright::c_resend_fd.value() << std::endl;
                 int status;
                 auto waited = waitpid(pid, &status, 0);
                 std::cerr << "Child done " << waited << " status " << status << std::endl;
@@ -124,13 +116,14 @@ FSL_MAIN(
                 /// Send a resend instruction to the parent process
                 const char resend[] = "r";
                 /// Write a single byte into the pipe
-                std::cerr << "Write resend request " << ::write(c_resend_fd.value(), resend, 1u) << std::endl;
+                std::cerr << "Write resend request "
+                    << ::write(wright::c_resend_fd.value(), resend, 1u) << std::endl;
             }
         }
     } else {
         /// The parent sets up the communications redirects etc and spawns
         /// child processes
-        std::vector<wright::childproc> children(c_children.value());
+        std::vector<wright::childproc> children(wright::c_children.value());
 
         /// Set up the argument vector for the child
         const auto command = c_exec.value();
@@ -147,7 +140,7 @@ FSL_MAIN(
         argv.push_back(nullptr);
 
         /// For each child go through and fork and execvpe it
-        for ( auto child = 0; child < c_children.value(); ++child ) {
+        for ( auto child = 0; child < children.size(); ++child ) {
             children[child].argv = argv;
             auto child_number = std::to_string(child + 1);
             children[child].argv[2] = child_number.c_str();
