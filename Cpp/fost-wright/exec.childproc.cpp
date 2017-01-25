@@ -9,6 +9,8 @@
 #include <wright/configuration.hpp>
 #include <wright/exec.childproc.hpp>
 
+#include <fost/log>
+
 #include <iostream>
 
 #include <sys/wait.h>
@@ -27,21 +29,34 @@ void wright::fork_worker() {
     while ( true ) {
         int pid = ::fork();
         if ( pid < 0 ) {
-            std::cerr << "Fork failed" << std::endl;
+            fostlib::log::error(c_exec_helper)
+                ("", "Fork failed")
+                ("parent", ::getpid());
             exit(5);
         } else if ( pid == 0 ) {
             ::execvp(argv[0], const_cast<char *const*>(argv.data()));
         } else {
-            std::cerr << pid << " started. Resend FD: " << wright::c_resend_fd.value() << std::endl;
+            fostlib::log::info(c_exec_helper)
+                ("", "Started child process")
+                ("pid", pid)
+                ("resend-fd", wright::c_resend_fd.value());
             int status;
             auto waited = waitpid(pid, &status, 0);
-            std::cerr << "Child done " << waited << " status " << status << std::endl;
-            if ( status == 0 ) break;
+            if ( status == 0 ) {
+                fostlib::log::info(c_exec_helper)
+                    ("", "Child completed")
+                    ("pid", pid);
+                break;
+            }
+            auto logger = fostlib::log::warning(c_exec_helper);
+            logger
+                ("", "Child errored")
+                ("pid", pid);
+                ("status", status);
             /// Send a resend instruction to the parent process
             const char resend[] = "r";
             /// Write a single byte into the pipe
-            std::cerr << "Write resend request "
-                << ::write(wright::c_resend_fd.value(), resend, 1u) << std::endl;
+            logger("Requested resend", ::write(wright::c_resend_fd.value(), resend, 1u) == 1);
         }
     }
 }

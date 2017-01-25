@@ -9,6 +9,8 @@
 #include <wright/configuration.hpp>
 #include <wright/exec.hpp>
 #include <wright/exec.childproc.hpp>
+#include <wright/exec.logging.hpp>
+
 
 #include <fost/main>
 
@@ -30,6 +32,7 @@ FSL_MAIN(
     } else if ( wright::c_child.value() ) {
         wright::fork_worker();
     } else {
+        wright::parent_logging();
         wright::exec_helper(out);
     }
 

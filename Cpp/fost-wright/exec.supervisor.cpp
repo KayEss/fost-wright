@@ -135,31 +135,47 @@ void wright::exec_helper(std::ostream &out) {
                 while ( cp->stdout.parent(ios).is_open() ) {
                     boost::system::error_code error;
                     auto ret = cp->read(ios, buffer, yield[error]);
-                    if ( not error && not ret.empty() && ret == cp->commands.front().first ) {
+                    if ( not error && not ret.empty() &&
+                            cp->commands.size() &&
+                            ret == cp->commands.front().first )
+                    {
                         ++p_completed;
                         cp->commands.pop_front();
-                        std::cerr << cp->pid << ": " << ret << std::endl;
+                        auto logger = fostlib::log::debug(c_exec_helper);
+                        logger
+                            ("", "Got result from child")
+                            ("child", cp->pid)
+                            ("result", ret.c_str());
                         out << ret << std::endl;
                         completed.insert(ret);
                         if ( in_closed && not signalled ) {
                             const auto working = std::count_if(children.begin(), children.end(),
                                     [](const auto &c) { return not c.commands.empty(); });
+                            logger("still-working", working);
                             if ( working == 0 ) {
                                 signalled = true;
                                 blocker.set_value();
                             }
                         }
                     } else if ( error ) {
-                        std::cerr << cp->pid << " read error: " << error << std::endl;
+                        fostlib::log::warning(c_exec_helper)
+                            ("", "Read error from child stdout")
+                            ("child", cp->pid)
+                            ("error", error);
                     } else if ( not ret.empty() ) {
                         auto &command = cp->commands.front().first;
-                        std::cerr << cp->pid << " ignored " <<
-                            (ret == command ? "equal" : "not-equal") <<
-                            "\n  input   : '" << ret << "' "<< ret.size() <<
-                            "\n  expected: '" << command << "' " << command.size() << std::endl;
+                        fostlib::log::debug(c_exec_helper)
+                            ("", "Ignored line from child")
+                            ("input", "string", ret.c_str())
+                            ("input", "size", ret.size())
+                            ("expected", "string", command.c_str())
+                            ("expected", "size", command.size())
+                            ("match", ret == command);
                     }
                 }
-                std::cerr << cp->pid << " done" << std::endl;
+                fostlib::log::info(c_exec_helper)
+                    ("", "Child done")
+                    ("pid", cp->pid);
             }));
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
@@ -170,7 +186,9 @@ void wright::exec_helper(std::ostream &out) {
                 if ( bytes ) {
                     switch ( char byte = buffer.sbumpc() ) {
                     default:
-                        std::cerr << "Got resend byte " << int(byte) << std::endl;
+                        fostlib::log::warning(c_exec_helper)
+                            ("", "Got unkown resend request byte")
+                            ("byte", int(byte));
                         break;
                     case 'r':
                         if ( signalled ) {
@@ -178,11 +196,17 @@ void wright::exec_helper(std::ostream &out) {
                             /// to be looping in an error. Kill it
                             ::kill(cp->pid, SIGINT);
                         } else {
-                            std::cerr << "Child wants resend of jobs: " << cp->commands.size() << std::endl;
+                            auto logger = fostlib::log::debug(c_exec_helper);
+                            logger
+                                ("", "Resending jobs for child")
+                                ("child", cp->pid)
+                                ("job", "count", cp->commands.size());
+                            fostlib::json jobs;
                             for ( auto &job : cp->commands ) {
-                                std::cerr << "Resending: " << job.first << std::endl;
+                                fostlib::push_back(jobs, job.first);
                                 cp->write(ios, job.first, yield);
                             }
+                            if ( jobs.size() ) logger("job", "list", jobs);
                         }
                     }
                 }
@@ -196,15 +220,20 @@ void wright::exec_helper(std::ostream &out) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
                 if ( error ) {
-                    std::cerr << "Input pipe error " << error << " bytes: " << bytes << std::endl;
-                    in_closed = true;
+                    fostlib::log::error(c_exec_helper)
+                        ("", "Error on child stderr")
+                        ("error", error)
+                        ("bytes", bytes);
                     return;
                 } else if ( bytes ) {
                     while ( bytes-- ) {
                         char next = buffer.sbumpc();
                         if ( next != '\n' ) line += next;
                     }
-                    std::cerr << line << std::endl;
+                    fostlib::log::debug(c_exec_helper)
+                        ("", "Child stderr")
+                        ("child", cp->pid)
+                        ("stderr", line.c_str());
                     line.clear();
                 }
             }
