@@ -7,6 +7,7 @@
 
 
 #include <wright/configuration.hpp>
+#include <wright/exception.hpp>
 #include <wright/exec.hpp>
 #include <wright/exec.childproc.hpp>
 
@@ -24,29 +25,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <cxxabi.h>
-
 
 namespace {
 
-
-    const auto rethrow = []() { throw; };
-    const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {
-        return [=](auto &&...a) {
-                try {
-                    return fn(a...);
-                } catch ( boost::coroutines::detail::forced_unwind & ) {
-                    throw;
-                } catch ( std::exception &e ) {
-                    std::cerr << e.what() << ": " << wright::c_child.value() << std::endl;
-                    return recov();
-                } catch ( ... ) {
-                    std::cerr << "Unkown exception: " << wright::c_child.value() << " - "
-                        << __cxxabiv1::__cxa_current_exception_type()->name() << std::endl;
-                    return recov();
-                }
-            };
-        };
 
     fostlib::performance p_accepted(wright::c_exec_helper, "jobs", "accepted");
     fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
@@ -284,7 +265,10 @@ void wright::exec_helper(std::ostream &out) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
                 if ( error ) {
-                    std::cerr << "Input pipe error " << error << " bytes: " << bytes << std::endl;
+                    fostlib::log::info(c_exec_helper)
+                        ("", "Input error. Presumed end of work")
+                        ("error", error)
+                        ("bytes", bytes);
                     in_closed = true;
                     return;
                 } else if ( bytes ) {
