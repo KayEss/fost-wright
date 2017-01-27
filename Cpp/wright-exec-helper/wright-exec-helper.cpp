@@ -26,20 +26,29 @@ int main(int argc, char *argv[]) {
     args.commandSwitch("w", wright::c_children);
     args.commandSwitch("rfd", wright::c_resend_fd);
     args.commandSwitch("x", wright::c_simulate);
-    /// Load the standard settings
-    fostlib::standard_arguments(settings, std::cerr, args);
-    /// Start the logging
-    fostlib::log::global_sink_configuration log_sinks(settings.c_logging.value());
+
+    auto run = [&](auto &logger, auto &task) {
+        return [&](auto &&... a) {
+            /// Build a suitable default loging configuration
+            const fostlib::setting<fostlib::json> log_setting{
+                __FILE__, settings.c_logging, logger()};
+            /// Load the standard settings
+            fostlib::standard_arguments(settings, std::cerr, args);
+            /// Start the logging
+            fostlib::log::global_sink_configuration log_sinks(settings.c_logging.value());
+            /// Run the task
+            task(a...);
+        };
+    };
 
     wright::exception_decorator([&]() {
         if ( wright::c_simulate.value() ) {
             /// Simulate work by sleeping, and also keep crashing
             wright::echo(std::cin, std::cout, std::cerr);
         } else if ( wright::c_child.value() ) {
-            wright::fork_worker();
+            run(wright::child_logging, wright::fork_worker)();
         } else {
-            wright::parent_logging();
-            wright::exec_helper(std::cout);
+            run(wright::parent_logging, wright::exec_helper)(std::cout);
         }
     }, [](){})();
     /// That last line though.

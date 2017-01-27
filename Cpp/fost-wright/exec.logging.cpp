@@ -13,26 +13,18 @@
 #include <fost/push_back>
 
 
-namespace {
-
-
-    fostlib::setting<fostlib::json> c_logging(__FILE__,
-        "wright-exec-helper", "Logging sinks",
-        []() {
-            fostlib::json ret, sink;
-            fostlib::insert(sink, "name", "stdout");
-            fostlib::insert(sink, "configuration", "channel", "stderr");
-            fostlib::insert(sink, "configuration", "log-level", 0);
-            fostlib::insert(sink, "configuration", "color", true);
-            fostlib::push_back(ret, "sinks", sink);
-            return ret;
-        }());
-
-
+fostlib::json wright::child_logging() {
+    fostlib::json ret, sink;
+    fostlib::insert(sink, "name", "stdout");
+    fostlib::insert(sink, "configuration", "channel", "stderr");
+    fostlib::insert(sink, "configuration", "log-level", 0);
+    fostlib::insert(sink, "configuration", "color", true);
+    fostlib::push_back(ret, "sinks", sink);
+    return ret;
 }
 
 
 fostlib::json wright::parent_logging() {
-    return fostlib::json();
+    return child_logging();
 }
 
