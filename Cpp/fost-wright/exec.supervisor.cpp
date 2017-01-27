@@ -161,6 +161,7 @@ void wright::exec_helper(std::ostream &out) {
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
+            boost::system::error_code error;
             while ( cp->resend.parent(ios).is_open() ) {
                 auto bytes = boost::asio::async_read(cp->resend.parent(ios), buffer,
                     boost::asio::transfer_exactly(1), yield);
@@ -189,6 +190,18 @@ void wright::exec_helper(std::ostream &out) {
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
                         }
+                        break;
+                    case '{':
+                        fostlib::string jsonstr{"{"};
+                        auto bytes = boost::asio::async_read_until(cp->resend.parent(ios), buffer, 0, yield[error]);
+                        if ( not error ) {
+                            for ( ; bytes; --bytes ) {
+                                char next = buffer.sbumpc();
+                                if ( next ) jsonstr += next;
+                            }
+                        }
+                        fostlib::log::info(c_exec_helper)
+                            ("message", fostlib::json::parse(jsonstr));
                     }
                 }
             }
