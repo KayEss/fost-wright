@@ -24,6 +24,9 @@ const fostlib::setting<int64_t> wright::c_children(
     __FILE__, "wright-exec-helper",
     "Children", std::thread::hardware_concurrency(), true);
 
+const fostlib::setting<bool> wright::c_can_die(
+    __FILE__, "wright-exec-helper", "Simulator can die", true, true);
+
 const fostlib::setting<bool> wright::c_simulate(
     __FILE__, "wright-exec-helper", "Simulate", false, true);
 

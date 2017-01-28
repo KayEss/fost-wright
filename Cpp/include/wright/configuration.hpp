@@ -24,6 +24,8 @@ namespace wright {
     extern const fostlib::setting<int64_t> c_child;
     /// The number of children to spawn
     extern const fostlib::setting<int64_t> c_children;
+    /// Set to false to stop the simulated worker from crashing
+    extern const fostlib::setting<bool> c_can_die;
     /// Whether to simulate
     extern const fostlib::setting<bool> c_simulate;
     /// The file descriptor to use for resend notificaitons

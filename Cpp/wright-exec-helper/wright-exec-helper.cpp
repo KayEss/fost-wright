@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
             return exec;
         }()};
     args.commandSwitch("c", wright::c_child);
+    args.commandSwitch("d", wright::c_can_die);
     args.commandSwitch("rfd", wright::c_resend_fd);
     args.commandSwitch("-simulate", wright::c_simulate);
     args.commandSwitch("w", wright::c_children);

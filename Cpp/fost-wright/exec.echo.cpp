@@ -6,6 +6,7 @@
 */
 
 
+#include <wright/configuration.hpp>
 #include <wright/exec.hpp>
 
 #include <chrono>
@@ -39,14 +40,14 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
                 ++captures;
             }
             std::this_thread::sleep_for(rand(gen) * 1ms);
-            if ( rand(gen) > crash_limit ) {
+            if ( rand(gen) > crash_limit && c_can_die.value() ) {
                 report << "Crash during work... " << ::getpid() << std::endl;
                 exit(3); // Simulate a crash
             }
             from = std::chrono::high_resolution_clock::now();
             out << command << std::endl;
         }
-        if ( rand(gen) > crash_limit ) {
+        if ( rand(gen) > crash_limit && c_can_die.value() ) {
             out << "Uh oh, crashed" << std::endl;
             report << "Crash after work... " << ::getpid() << std::endl;
             exit(2); // Simulate a crash
