@@ -18,7 +18,7 @@ fostlib::json wright::parent_logging() {
     fostlib::json ret, sink;
     fostlib::insert(sink, "name", "stdout");
     fostlib::insert(sink, "configuration", "channel", "stderr");
-    fostlib::insert(sink, "configuration", "log-level", 0);
+    fostlib::insert(sink, "configuration", "log-level", fostlib::log::warning_level_tag::level());
     fostlib::insert(sink, "configuration", "color", true);
     fostlib::push_back(ret, "sinks", sink);
     return ret;
