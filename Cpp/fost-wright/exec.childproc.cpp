@@ -49,7 +49,7 @@ void wright::fork_worker() {
                 ("resend-fd", wright::c_resend_fd.value());
             int status;
             waitpid(pid, &status, 0);
-            if ( status == 0 ) {
+            if ( WEXITSTATUS(status) == 0 ) {
                 fostlib::log::info(c_exec_helper)
                     ("", "Child completed")
                     ("pid", pid);
