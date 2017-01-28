@@ -41,7 +41,7 @@ void wright::fork_worker() {
                 ("pid", pid)
                 ("resend-fd", wright::c_resend_fd.value());
             int status;
-            auto waited = waitpid(pid, &status, 0);
+            waitpid(pid, &status, 0);
             if ( status == 0 ) {
                 fostlib::log::info(c_exec_helper)
                     ("", "Child completed")
@@ -51,7 +51,7 @@ void wright::fork_worker() {
             auto logger = fostlib::log::warning(c_exec_helper);
             logger
                 ("", "Child errored")
-                ("pid", pid);
+                ("pid", pid)
                 ("status", status);
             /// Send a resend instruction to the parent process
             const char resend[] = "r";
@@ -66,11 +66,20 @@ void wright::fork_worker() {
  * wright::childproc
  */
 
-wright::childproc::childproc(std::size_t n)
+wright::childproc::childproc(std::size_t n, const char *command)
 : number(n),
     reference(c_exec_helper, std::to_string(n)),
+    backchannel_fd(std::to_string(::dup(resend.child()))),
     commands(buffer_size)
 {
+    argv.push_back(command);
+    argv.push_back("-c");
+    argv.push_back(reference.name()); // child number
+    argv.push_back("-b"); // No banner
+    argv.push_back("false");
+    argv.push_back("-rfd"); // Rsend FD number
+    argv.push_back(backchannel_fd.c_str()); // holder for the FD number
+    argv.push_back(nullptr);
 }
 
 

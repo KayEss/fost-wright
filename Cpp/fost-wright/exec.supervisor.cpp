@@ -59,29 +59,10 @@ void wright::exec_helper(std::ostream &out) {
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
     std::vector<wright::childproc> children;
-
-    /// Set up the argument vector for the child
-    const auto command = wright::c_exec.value();
-    std::vector<char const *> argv;
-    argv.push_back(command.c_str());
-    if ( command == argv[0] ) {
-        argv.push_back("-c");
-        argv.push_back(nullptr); // holder for the child number
-        argv.push_back("-b"); // No banner
-        argv.push_back("false");
-        argv.push_back("-rfd"); // Rsend FD number
-        argv.push_back(nullptr); // holder for the FD number
-    }
-    argv.push_back(nullptr);
-
     /// For each child go through and fork and execvpe it
+    auto command = wright::c_exec.value();
     for ( std::size_t child{}; child < wright::c_children.value(); ++child ) {
-        children.emplace_back(child + 1);
-        children[child].argv = argv;
-        auto child_number = std::to_string(child + 1);
-        children[child].argv[2] = child_number.c_str();
-        auto resend_fd = std::to_string(::dup(children[child].resend.child()));
-        children[child].argv[6] = resend_fd.c_str();
+        children.emplace_back(child + 1, command.c_str());
         children[child].fork_exec([&]() { children.clear(); });
     }
     /// Now that we have children, we're going to want to deal with

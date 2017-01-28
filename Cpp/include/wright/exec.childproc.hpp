@@ -41,12 +41,14 @@ namespace wright {
         const fostlib::module reference;
         /// The command line argument list for the child process
         std::vector<char const *> argv;
+        /// The string version of the backchannel FD
+        std::string backchannel_fd;
         /// The PID that the child gets
         int pid;
         /// The current queue
         boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
 
-        childproc(std::size_t n);
+        childproc(std::size_t n, const char *);
         childproc(childproc &&);
         ~childproc() {
             close();
