@@ -58,7 +58,7 @@ namespace {
 void wright::exec_helper(std::ostream &out) {
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
-    std::vector<wright::childproc> children(wright::c_children.value());
+    std::vector<wright::childproc> children;
 
     /// Set up the argument vector for the child
     const auto command = wright::c_exec.value();
@@ -75,7 +75,8 @@ void wright::exec_helper(std::ostream &out) {
     argv.push_back(nullptr);
 
     /// For each child go through and fork and execvpe it
-    for ( auto child = 0; child < children.size(); ++child ) {
+    for ( std::size_t child{}; child < wright::c_children.value(); ++child ) {
+        children.emplace_back(child + 1);
         children[child].argv = argv;
         auto child_number = std::to_string(child + 1);
         children[child].argv[2] = child_number.c_str();
@@ -168,17 +169,17 @@ void wright::exec_helper(std::ostream &out) {
                 if ( bytes ) {
                     switch ( char byte = buffer.sbumpc() ) {
                     default:
-                        fostlib::log::warning(c_exec_helper)
+                        fostlib::log::warning(cp->reference)
                             ("", "Got unkown resend request byte")
                             ("byte", int(byte));
                         break;
-                    case 'r':
+                    case 'r': {
                         if ( signalled ) {
                             /// The work is done, but the child seems
                             /// to be looping in an error. Kill it
                             ::kill(cp->pid, SIGINT);
                         } else {
-                            auto logger = fostlib::log::debug(c_exec_helper);
+                            auto logger = fostlib::log::debug(cp->reference);
                             logger
                                 ("", "Resending jobs for child")
                                 ("child", cp->pid)
@@ -190,8 +191,8 @@ void wright::exec_helper(std::ostream &out) {
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
                         }
-                        break;
-                    case '{':
+                        break;}
+                    case '{': {
                         fostlib::string jsonstr{"{"};
                         auto bytes = boost::asio::async_read_until(cp->resend.parent(ios), buffer, 0, yield[error]);
                         if ( not error ) {
@@ -200,8 +201,8 @@ void wright::exec_helper(std::ostream &out) {
                                 if ( next ) jsonstr += next;
                             }
                         }
-                        fostlib::log::info(c_exec_helper)
-                            ("message", fostlib::json::parse(jsonstr));
+                        fostlib::log::log(fostlib::log::message(cp->reference, fostlib::json::parse(jsonstr)));
+                        break;}
                     }
                 }
             }
@@ -247,7 +248,11 @@ void wright::exec_helper(std::ostream &out) {
                 case 'c':
                     for ( auto &child : children ) {
                         if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
-                            std::cerr << child.pid << " dead. Time to PANIC..." << std::endl;
+                            fostlib::log::critical(c_exec_helper)
+                                ("", "Immediate child dead -- Time to PANIC")
+                                ("child", "number", child.number)
+                                ("child", "pid", child.pid);
+                            fostlib::log::flush();
                             std::exit(4);
                         }
                     }
@@ -301,7 +306,6 @@ void wright::exec_helper(std::ostream &out) {
                     }
                 }
             }
-            std::cerr << "Input processing done" << std::endl;
             in_closed = true;
         }));
 

@@ -31,7 +31,7 @@ namespace wright {
         /// direction of the pipe is controlled by the template parameters.
         /// Applications should use the pipe_in or pipe_out classes instead.
         template<std::size_t PFD, std::size_t CFD>
-        class pipe {
+        class pipe final {
             int parent_fd = 0;
             std::experimental::optional<boost::asio::posix::stream_descriptor> parent_sd;
             int child_fd = 0;
@@ -39,6 +39,15 @@ namespace wright {
             /// Create a new pipe
             pipe() {
                 std::tie(parent_fd, child_fd) = detail::pipe_fds(PFD, CFD);
+            }
+            /// Make movable
+            pipe(pipe &&p)
+            : parent_fd(p.parent_fd),
+                parent_sd(std::move(p.parent_sd)),
+                child_fd(p.child_fd)
+            {
+                p.parent_fd = 0;
+                p.child_fd = 0;
             }
             /// Close the file handles
             ~pipe() {

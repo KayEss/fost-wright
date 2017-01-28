@@ -31,10 +31,14 @@ namespace wright {
     void fork_worker();
 
 
-    struct childproc final {
+    struct childproc final : boost::noncopyable {
         pipe_in stdin;
         pipe_out stdout, stderr, resend;
 
+        /// The child number
+        const std::size_t number;
+        /// The child module
+        const fostlib::module reference;
         /// The command line argument list for the child process
         std::vector<char const *> argv;
         /// The PID that the child gets
@@ -42,12 +46,8 @@ namespace wright {
         /// The current queue
         boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
 
-        childproc()
-        : commands(buffer_size) {
-        }
-        childproc(const childproc &) = delete;
-        childproc &operator = (const childproc &) = delete;
-
+        childproc(std::size_t n);
+        childproc(childproc &&);
         ~childproc() {
             close();
         }

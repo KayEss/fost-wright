@@ -66,6 +66,27 @@ void wright::fork_worker() {
  * wright::childproc
  */
 
+wright::childproc::childproc(std::size_t n)
+: number(n),
+    reference(c_exec_helper, std::to_string(n)),
+    commands(buffer_size)
+{
+}
+
+
+wright::childproc::childproc(childproc &&p)
+: stdin(std::move(p.stdin)),
+    stdout(std::move(p.stdout)),
+    stderr(std::move(p.stderr)),
+    resend(std::move(p.resend)),
+    number(p.number),
+    reference(std::move(p.reference)),
+    argv(std::move(p.argv)),
+    pid(p.pid),
+    commands(std::move(p.commands))
+{
+}
+
 
 namespace {
     const struct newl {
