@@ -8,6 +8,8 @@
 
 #include <wright/configuration.hpp>
 
+#include <fost/push_back>
+
 #include <thread>
 
 
@@ -28,6 +30,14 @@ const fostlib::setting<bool> wright::c_simulate(
 const fostlib::setting<int> wright::c_resend_fd(
     __FILE__, "wright-exec-helper", "Resend FD", 0, true);
 
-const fostlib::setting<fostlib::string> wright::c_exec(
-    __FILE__, "wright-exec-helper", "Execute", "wright-exec-helper", true);
+const fostlib::setting<fostlib::json> wright::c_exec(
+    __FILE__, "wright-exec-helper", "Execute", [](){
+        fostlib::json cmd;
+        fostlib::push_back(cmd, "wright-exec-helper");
+        fostlib::push_back(cmd, "--simulate"); // Simulate
+        fostlib::push_back(cmd, "true");
+        fostlib::push_back(cmd, "-b"); // No banner
+        fostlib::push_back(cmd, "false");
+        return cmd;
+    }(), true);
 

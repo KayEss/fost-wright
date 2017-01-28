@@ -19,7 +19,7 @@ namespace wright {
     void echo(std::istream &in, std::ostream &out, std::ostream &report);
 
     /// Start child processes and route work to them
-    void exec_helper(std::ostream &out);
+    void exec_helper(std::ostream &out, const char *command);
 
 
 }

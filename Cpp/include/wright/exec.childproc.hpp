@@ -40,6 +40,7 @@ namespace wright {
         /// The child module
         const fostlib::module reference;
         /// The command line argument list for the child process
+        fostlib::string argx;
         std::vector<char const *> argv;
         /// The string version of the backchannel FD
         std::string backchannel_fd;
@@ -64,9 +65,8 @@ namespace wright {
                 dup2(stdin.child(), STDIN_FILENO);
                 dup2(stdout.child(), STDOUT_FILENO);
                 dup2(stderr.child(), STDERR_FILENO);
-                auto argv_copy = argv;
                 tidy();
-                ::execvp(argv_copy[0], const_cast<char *const *>(argv_copy.data()));
+                ::execvp(argv.front(), const_cast<char *const *>(argv.data()));
             }
         }
 

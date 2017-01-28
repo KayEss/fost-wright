@@ -17,13 +17,14 @@
 
 
 void wright::fork_worker() {
+    /// Read in the command line we're going to run
+    std::vector<fostlib::string> argvs;
+    argvs.reserve(c_exec.value().size());
     std::vector<char const *> argv;
-    const auto command = c_exec.value();
-    argv.push_back(command.c_str());
-    argv.push_back("-x"); // Simulate
-    argv.push_back("true");
-    argv.push_back("-b"); // No banner
-    argv.push_back("false");
+    for ( const auto &item : c_exec.value() ) {
+        argvs.push_back(fostlib::coerce<fostlib::string>(item));
+        argv.push_back(argvs.back().c_str());
+    }
     argv.push_back(nullptr);
     /// Fork and loop until done
     while ( true ) {
@@ -34,7 +35,13 @@ void wright::fork_worker() {
                 ("parent", ::getpid());
             exit(5);
         } else if ( pid == 0 ) {
-            ::execvp(argv[0], const_cast<char *const*>(argv.data()));
+            ::execvp(argv.front(), const_cast<char *const*>(argv.data()));
+            std::cerr << "Child process failed to start:";
+            for ( auto part : argv ) if ( part ) std::cerr << " '" << part << '\'';
+            std::cerr << std::endl;
+            const char dead[] = "x";
+            ::write(wright::c_resend_fd.value(), dead, 1u);
+            return;
         } else {
             fostlib::log::info(c_exec_helper)
                 ("", "Started child process")
@@ -46,17 +53,16 @@ void wright::fork_worker() {
                 fostlib::log::info(c_exec_helper)
                     ("", "Child completed")
                     ("pid", pid);
-                break;
+                return;
             }
-            auto logger = fostlib::log::warning(c_exec_helper);
-            logger
-                ("", "Child errored")
+            fostlib::log::warning(c_exec_helper)
+                ("", "Child errored -- requesting resend")
                 ("pid", pid)
                 ("status", status);
             /// Send a resend instruction to the parent process
-            const char resend[] = "r";
             /// Write a single byte into the pipe
-            logger("Requested resend", ::write(wright::c_resend_fd.value(), resend, 1u) == 1);
+            const char resend[] = "r";
+            ::write(wright::c_resend_fd.value(), resend, 1u);
         }
     }
 }
@@ -69,6 +75,7 @@ void wright::fork_worker() {
 wright::childproc::childproc(std::size_t n, const char *command)
 : number(n),
     reference(c_exec_helper, std::to_string(n)),
+    argx(fostlib::json::unparse(c_exec.value(), false)),
     backchannel_fd(std::to_string(::dup(resend.child()))),
     commands(buffer_size)
 {
@@ -79,6 +86,8 @@ wright::childproc::childproc(std::size_t n, const char *command)
     argv.push_back("false");
     argv.push_back("-rfd"); // Rsend FD number
     argv.push_back(backchannel_fd.c_str()); // holder for the FD number
+    argv.push_back("-x"); // Program arguments
+    argv.push_back(argx.c_str());
     argv.push_back(nullptr);
 }
 
@@ -154,7 +163,9 @@ std::string wright::childproc::read(
 
 
 void wright::childproc::close() {
-    stdout.close();
     stdin.close();
+    stdout.close();
+    stderr.close();
+    resend.close();
 }
 

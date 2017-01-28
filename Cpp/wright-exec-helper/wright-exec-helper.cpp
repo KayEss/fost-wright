@@ -21,11 +21,17 @@ int main(int argc, char *argv[]) {
         "Wright execution helper\nCopyright (c) 2016-2017, Felspar Co. Ltd."};
     fostlib::arguments args(argc, argv);
     /// Configure more settings
-    const fostlib::setting<fostlib::string> exec(__FILE__, wright::c_exec, args[0].value());
+    const fostlib::setting<fostlib::json> exec{
+        __FILE__, wright::c_exec, [&]() {
+            auto exec = wright::c_exec.value();
+            fostlib::jcursor(0).set(exec, fostlib::json(args[0].value()));
+            return exec;
+        }()};
     args.commandSwitch("c", wright::c_child);
-    args.commandSwitch("w", wright::c_children);
     args.commandSwitch("rfd", wright::c_resend_fd);
-    args.commandSwitch("x", wright::c_simulate);
+    args.commandSwitch("-simulate", wright::c_simulate);
+    args.commandSwitch("w", wright::c_children);
+    args.commandSwitch("x", wright::c_exec);
 
     auto run = [&](auto &logger, auto &task) {
         return [&](auto &&... a) {
@@ -48,12 +54,13 @@ int main(int argc, char *argv[]) {
         } else if ( wright::c_child.value() ) {
             run(wright::child_logging, wright::fork_worker)();
         } else {
-            run(wright::parent_logging, wright::exec_helper)(std::cout);
+            run(wright::parent_logging, wright::exec_helper)(std::cout, args[0].value().c_str());
         }
     }, [](){})();
     /// That last line though.
     /// * `[](){} ` An empty lambda in effect saying "don't re-throw the exception"
     /// * `() ` Immediately invoke the decorated function.
+    fostlib::log::flush();
 
     return 0;
 }

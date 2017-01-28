@@ -55,15 +55,18 @@ namespace {
 }
 
 
-void wright::exec_helper(std::ostream &out) {
+void wright::exec_helper(std::ostream &out, const char *command) {
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
     std::vector<wright::childproc> children;
     /// For each child go through and fork and execvpe it
-    auto command = wright::c_exec.value();
     for ( std::size_t child{}; child < wright::c_children.value(); ++child ) {
-        children.emplace_back(child + 1, command.c_str());
-        children[child].fork_exec([&]() { children.clear(); });
+        children.emplace_back(child + 1, command);
+        children[child].fork_exec([&]() {
+            for ( auto &child : children ) {
+                child.close();
+            }
+        });
     }
     /// Now that we have children, we're going to want to deal with
     /// their deaths
@@ -154,7 +157,7 @@ void wright::exec_helper(std::ostream &out) {
                             ("", "Got unkown resend request byte")
                             ("byte", int(byte));
                         break;
-                    case 'r': {
+                    case 'r':
                         if ( signalled ) {
                             /// The work is done, but the child seems
                             /// to be looping in an error. Kill it
@@ -172,18 +175,25 @@ void wright::exec_helper(std::ostream &out) {
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
                         }
-                        break;}
-                    case '{': {
-                        fostlib::string jsonstr{"{"};
-                        auto bytes = boost::asio::async_read_until(cp->resend.parent(ios), buffer, 0, yield[error]);
-                        if ( not error ) {
-                            for ( ; bytes; --bytes ) {
-                                char next = buffer.sbumpc();
-                                if ( next ) jsonstr += next;
-                            }
+                        break;
+                    case 'x': {
+                            fostlib::log::critical(cp->reference,
+                                "Child process failed to execvp worker process");
+                            fostlib::log::flush();
+                            std::exit(10);
                         }
-                        fostlib::log::log(fostlib::log::message(cp->reference, fostlib::json::parse(jsonstr)));
-                        break;}
+                    case '{': {
+                            fostlib::string jsonstr{"{"};
+                            auto bytes = boost::asio::async_read_until(cp->resend.parent(ios), buffer, 0, yield[error]);
+                            if ( not error ) {
+                                for ( ; bytes; --bytes ) {
+                                    char next = buffer.sbumpc();
+                                    if ( next ) jsonstr += next;
+                                }
+                            }
+                            fostlib::log::log(fostlib::log::message(cp->reference, fostlib::json::parse(jsonstr)));
+                            break;
+                        }
                     }
                 }
             }
@@ -196,8 +206,8 @@ void wright::exec_helper(std::ostream &out) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
                 if ( error ) {
-                    fostlib::log::error(c_exec_helper)
-                        ("", "Error on child stderr")
+                    fostlib::log::error(cp->reference)
+                        ("", "Error reading child stderr")
                         ("error", error)
                         ("bytes", bytes);
                     return;
@@ -206,7 +216,7 @@ void wright::exec_helper(std::ostream &out) {
                         char next = buffer.sbumpc();
                         if ( next != '\n' ) line += next;
                     }
-                    fostlib::log::debug(c_exec_helper)
+                    fostlib::log::warning(cp->reference)
                         ("", "Child stderr")
                         ("child", cp->pid)
                         ("stderr", line.c_str());
