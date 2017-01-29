@@ -281,10 +281,13 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     in_closed = true;
                     return;
                 } else if ( bytes ) {
-                    buffer.commit(bytes);
-                    std::istream in(&buffer);
                     std::string line;
-                    std::getline(in, line);
+                    for ( ; bytes; --bytes ) {
+                        char next = buffer.sbumpc();
+                        if ( next != 0 && next != '\n' ) {
+                            line += next;
+                        }
+                    }
                     auto task = ++limit; // Must do this first so it can block
                     for ( auto &child : children ) {
                         if ( not child.commands.full() ) {
