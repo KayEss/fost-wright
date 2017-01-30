@@ -1,4 +1,6 @@
 
 fost-lib-autotest fost-wright
     : Cpp/fost-wright
+    :
+        $(TOP)/../Boost//boost-coroutine-dll
     ;
