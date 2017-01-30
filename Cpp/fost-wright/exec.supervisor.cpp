@@ -13,7 +13,6 @@
 
 #include <f5/threading/boost-asio.hpp>
 #include <fost/cli>
-#include <fost/counter>
 #include <fost/unicode>
 
 #include <boost/asio.hpp>
@@ -29,8 +28,10 @@
 namespace {
 
 
+    fostlib::performance p_crashes(wright::c_exec_helper, "child", "crashed");
     fostlib::performance p_accepted(wright::c_exec_helper, "jobs", "accepted");
     fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
+    fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
 
     /// Pipe used to signall the event loop that a child has died
     std::unique_ptr<wright::pipe_out> sigchild;
@@ -106,6 +107,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ret == cp->commands.front().first )
                     {
                         ++p_completed;
+//                         ++(cp->counters->completed);
                         cp->commands.pop_front();
                         auto logger = fostlib::log::debug(c_exec_helper);
                         logger
@@ -153,17 +155,18 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 if ( bytes ) {
                     switch ( char byte = buffer.sbumpc() ) {
                     default:
-                        fostlib::log::warning(cp->reference)
+                        fostlib::log::warning(cp->counters->reference)
                             ("", "Got unkown resend request byte")
                             ("byte", int(byte));
                         break;
                     case 'r':
+                        ++p_crashes;
                         if ( signalled ) {
                             /// The work is done, but the child seems
                             /// to be looping in an error. Kill it
                             ::kill(cp->pid, SIGINT);
                         } else {
-                            auto logger = fostlib::log::debug(cp->reference);
+                            auto logger = fostlib::log::debug(cp->counters->reference);
                             logger
                                 ("", "Resending jobs for child")
                                 ("child", cp->pid)
@@ -172,12 +175,13 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             for ( auto &job : cp->commands ) {
                                 fostlib::push_back(jobs, job.first);
                                 cp->write(ios, job.first, yield);
+                                ++p_resent;
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
                         }
                         break;
                     case 'x': {
-                            fostlib::log::critical(cp->reference,
+                            fostlib::log::critical(cp->counters->reference,
                                 "Child process failed to execvp worker process");
                             fostlib::log::flush();
                             std::exit(10);
@@ -191,7 +195,8 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                                     if ( next ) jsonstr += next;
                                 }
                             }
-                            fostlib::log::log(fostlib::log::message(cp->reference, fostlib::json::parse(jsonstr)));
+                            fostlib::log::log(fostlib::log::message(
+                                cp->counters->reference, fostlib::json::parse(jsonstr)));
                             break;
                         }
                     }
@@ -206,7 +211,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
                 if ( error ) {
-                    fostlib::log::error(cp->reference)
+                    fostlib::log::error(cp->counters->reference)
                         ("", "Error reading child stderr")
                         ("error", error)
                         ("bytes", bytes);
@@ -216,7 +221,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         char next = buffer.sbumpc();
                         if ( next != '\n' ) line += next;
                     }
-                    fostlib::log::warning(cp->reference)
+                    fostlib::log::warning(cp->counters->reference)
                         ("", "Child stderr")
                         ("child", cp->pid)
                         ("stderr", line.c_str());
@@ -295,6 +300,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             child.commands.push_back(std::make_pair(line, std::move(task)));
                             requested.insert(line);
                             ++p_accepted;
+//                             ++(child.counters->accepted);
                             break;
                         }
                     }

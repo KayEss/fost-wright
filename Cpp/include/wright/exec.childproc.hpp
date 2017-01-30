@@ -14,6 +14,7 @@
 
 
 #include <f5/threading/eventfd.hpp>
+#include <fost/counter>
 
 #include <wright/pipe.hpp>
 
@@ -37,8 +38,14 @@ namespace wright {
 
         /// The child number
         const std::size_t number;
-        /// The child module
-        const fostlib::module reference;
+        struct counter_store {
+            counter_store(std::size_t);
+            /// The child module
+            const fostlib::module reference;
+            /// Performance counters
+            fostlib::performance accepted, completed;
+        };
+        std::unique_ptr<counter_store> counters;
         /// The command line argument list for the child process
         fostlib::string argx;
         std::vector<char const *> argv;

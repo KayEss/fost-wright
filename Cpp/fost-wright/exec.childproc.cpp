@@ -69,19 +69,33 @@ void wright::fork_worker() {
 
 
 /*
+ * wright::childproc::counter_store
+ */
+
+
+wright::childproc::counter_store::counter_store(std::size_t n)
+: reference(c_exec_helper, std::to_string(n)),
+    accepted(reference, "jobs", "accepted"),
+    completed(reference, "jobs", "completed")
+{
+}
+
+
+/*
  * wright::childproc
  */
 
+
 wright::childproc::childproc(std::size_t n, const char *command)
 : number(n),
-    reference(c_exec_helper, std::to_string(n)),
+    counters(new counter_store{n}),
     argx(fostlib::json::unparse(c_exec.value(), false)),
     backchannel_fd(std::to_string(::dup(resend.child()))),
     commands(buffer_size)
 {
     argv.push_back(command);
     argv.push_back("-c");
-    argv.push_back(reference.name()); // child number
+    argv.push_back(counters->reference.name()); // child number
     argv.push_back("-b"); // No banner
     argv.push_back("false");
     argv.push_back("-rfd"); // Rsend FD number
@@ -98,7 +112,7 @@ wright::childproc::childproc(childproc &&p)
     stderr(std::move(p.stderr)),
     resend(std::move(p.resend)),
     number(p.number),
-    reference(std::move(p.reference)),
+    counters(std::move(p.counters)),
     argv(std::move(p.argv)),
     pid(p.pid),
     commands(std::move(p.commands))
