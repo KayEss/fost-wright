@@ -30,6 +30,11 @@ const fostlib::setting<bool> wright::c_can_die(
 const fostlib::setting<bool> wright::c_simulate(
     __FILE__, "wright-exec-helper", "Simulate", false, true);
 
+const fostlib::setting<unsigned> wright::c_sim_mean(
+    __FILE__, "wright-exec-helper", "Simulated job mean", 1000, true);
+const fostlib::setting<unsigned> wright::c_sim_sd(
+    __FILE__, "wright-exec-helper", "Simulated job standard deviation", 500, true);
+
 const fostlib::setting<int> wright::c_resend_fd(
     __FILE__, "wright-exec-helper", "Resend FD", 0, true);
 

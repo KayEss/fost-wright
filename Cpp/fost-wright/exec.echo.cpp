@@ -27,8 +27,8 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::normal_distribution<float> rand(1000, 500);
-    const auto crash_limit = 1500;
+    std::normal_distribution<float> rand(c_sim_mean.value(), c_sim_sd.value());
+    const auto crash_limit = c_sim_mean.value() + c_sim_sd.value();
 
     std::string command;
     while ( in ) {
