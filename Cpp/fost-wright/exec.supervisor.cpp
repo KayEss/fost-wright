@@ -221,10 +221,11 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         char next = buffer.sbumpc();
                         if ( next != '\n' ) line += next;
                     }
+                    auto parsed = fostlib::json::parse(line, fostlib::json(line));
                     fostlib::log::warning(cp->counters->reference)
                         ("", "Child stderr")
                         ("child", cp->pid)
-                        ("stderr", line.c_str());
+                        ("stderr", parsed);
                     line.clear();
                 }
             }
