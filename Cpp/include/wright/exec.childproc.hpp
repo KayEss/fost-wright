@@ -32,6 +32,12 @@ namespace wright {
     void fork_worker();
 
 
+    struct job {
+        std::string command;
+        std::shared_ptr<f5::eventfd::limiter::job> limiter;
+    };
+
+
     struct childproc final : boost::noncopyable {
         pipe_in stdin;
         pipe_out stdout, stderr, resend;
@@ -54,7 +60,7 @@ namespace wright {
         /// The PID that the child gets
         int pid;
         /// The current queue
-        boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
+        boost::circular_buffer<job> commands;
 
         childproc(std::size_t n, const char *);
         childproc(childproc &&);

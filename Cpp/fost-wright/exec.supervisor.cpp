@@ -104,7 +104,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     auto ret = cp->read(ios, buffer, yield[error]);
                     if ( not error && not ret.empty() &&
                             cp->commands.size() &&
-                            ret == cp->commands.front().first )
+                            ret == cp->commands.front().command )
                     {
                         ++p_completed;
 //                         ++(cp->counters->completed);
@@ -131,7 +131,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ("child", cp->pid)
                             ("error", error);
                     } else if ( not ret.empty() ) {
-                        auto &command = cp->commands.front().first;
+                        auto &command = cp->commands.front().command;
                         fostlib::log::debug(c_exec_helper)
                             ("", "Ignored line from child")
                             ("input", "string", ret.c_str())
@@ -173,8 +173,8 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                                 ("job", "count", cp->commands.size());
                             fostlib::json jobs;
                             for ( auto &job : cp->commands ) {
-                                fostlib::push_back(jobs, job.first);
-                                cp->write(ios, job.first, yield);
+                                fostlib::push_back(jobs, job.command);
+                                cp->write(ios, job.command, yield);
                                 ++p_resent;
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
@@ -297,7 +297,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     for ( auto &child : children ) {
                         if ( not child.commands.full() ) {
                             child.write(ios, line, yield);
-                            child.commands.push_back(std::make_pair(line, std::move(task)));
+                            child.commands.push_back(wright::job{line, std::move(task)});
                             requested.insert(line);
                             ++p_accepted;
 //                             ++(child.counters->accepted);
