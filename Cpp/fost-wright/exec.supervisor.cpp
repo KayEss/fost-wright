@@ -25,6 +25,9 @@
 #include <unistd.h>
 
 
+using namespace std::literals::chrono_literals;
+
+
 namespace {
 
 
@@ -57,6 +60,9 @@ namespace {
 
 
 void wright::exec_helper(std::ostream &out, const char *command) {
+    /// We want to store statistics about the work done
+    fostlib::time_profile<std::chrono::milliseconds> job_times(5ms, 1.2, 20, 24ms);
+
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
     std::vector<wright::childproc> children;
@@ -108,7 +114,9 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     {
                         ++p_completed;
 //                         ++(cp->counters->completed);
+                        job_times.record(cp->commands.front().time);
                         cp->commands.pop_front();
+                        if ( cp->commands.size() ) cp->commands.front().time.reset();
                         auto logger = fostlib::log::debug(c_exec_helper);
                         logger
                             ("", "Got result from child")
@@ -206,7 +214,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         /// Finally, drain the child's stderr
         boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
-            std::string line;
+            fostlib::string line;
             while ( cp->stderr.parent(ios).is_open() ) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
@@ -321,6 +329,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     }
 
     std::cerr << fostlib::performance::current() << std::endl;
+    std::cerr << fostlib::coerce<fostlib::json>(job_times) << std::endl;
     const bool success = (requested == completed);
     std::cerr << (success ? "All done" : "Some wrong") << std::endl;
 }

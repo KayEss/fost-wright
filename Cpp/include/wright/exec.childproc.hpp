@@ -15,6 +15,7 @@
 
 #include <f5/threading/eventfd.hpp>
 #include <fost/counter>
+#include <fost/timer>
 
 #include <wright/pipe.hpp>
 
@@ -35,6 +36,7 @@ namespace wright {
     struct job {
         std::string command;
         std::shared_ptr<f5::eventfd::limiter::job> limiter;
+        fostlib::timer time;
     };
 
 
