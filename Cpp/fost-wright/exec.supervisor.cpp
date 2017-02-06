@@ -10,6 +10,7 @@
 #include <wright/exception.hpp>
 #include <wright/exec.hpp>
 #include <wright/exec.childproc.hpp>
+#include <wright/net.server.hpp>
 
 #include <f5/threading/boost-asio.hpp>
 #include <fost/cli>
