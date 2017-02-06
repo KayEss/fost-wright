@@ -54,6 +54,35 @@ namespace {
                 "Failed to establish signal handler for SIGCHLD");
         }
     }
+    auto sigchild_reactor(
+        boost::asio::io_service &auxios, std::vector<wright::childproc> &children
+    ) {
+        return [&](auto yield) {
+            boost::asio::streambuf buffer;
+            while ( sigchild->parent(auxios).is_open() ) {
+                auto bytes = boost::asio::async_read(sigchild->parent(auxios), buffer,
+                    boost::asio::transfer_exactly(1), yield);
+                if ( bytes ) {
+                    switch ( char byte = buffer.sbumpc() ) {
+                    default:
+                        std::cerr << "Got signal byte " << int(byte) << std::endl;
+                        break;
+                    case 'c':
+                        for ( auto &child : children ) {
+                            if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
+                                fostlib::log::critical(wright::c_exec_helper)
+                                    ("", "Immediate child dead -- Time to PANIC")
+                                    ("child", "number", child.number)
+                                    ("child", "pid", child.pid);
+                                fostlib::log::flush();
+                                std::exit(4);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    }
 
 
 }
@@ -89,8 +118,13 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// Stop on exception, one thread. We want one thread here so
     /// we don't have to worry about thread synchronisation when
     /// running code in the reactor
-    f5::boost_asio::reactor_pool coordinator([]() { return false; }, 1u);
-    auto &ios = coordinator.get_io_service();
+    f5::boost_asio::reactor_pool control([]() { return false; }, 1u);
+    auto &ctrlios = control.get_io_service();
+    /// This reactor pool is used for anything that doesn't involve
+    /// control of the job queues. It can afford to continue after an
+    /// exception and uses more threads.
+    f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
+    auto &auxios = auxilliary.get_io_service();
 
     /// All the children need a presence in the reactor pool for
     /// their process requirement
@@ -98,12 +132,12 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         /// Each child will wait on the command, then write it
         /// the pipe for the process to execute and wait on the result
         auto *cp = &child;
-        boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
+        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
                 /// Wait for a job to be queued in their process ID
                 boost::asio::streambuf buffer;
-                while ( cp->stdout.parent(ios).is_open() ) {
+                while ( cp->stdout.parent(ctrlios).is_open() ) {
                     boost::system::error_code error;
-                    auto ret = cp->read(ios, buffer, yield[error]);
+                    auto ret = cp->read(ctrlios, buffer, yield[error]);
                     if ( not error && not ret.empty() &&
                             cp->commands.size() &&
                             ret == cp->commands.front().command )
@@ -149,11 +183,11 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     ("pid", cp->pid);
             }));
         /// We also need to watch for a resend alert from the child process
-        boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
+        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
             boost::system::error_code error;
-            while ( cp->resend.parent(ios).is_open() ) {
-                auto bytes = boost::asio::async_read(cp->resend.parent(ios), buffer,
+            while ( cp->resend.parent(ctrlios).is_open() ) {
+                auto bytes = boost::asio::async_read(cp->resend.parent(ctrlios), buffer,
                     boost::asio::transfer_exactly(1), yield);
                 if ( bytes ) {
                     switch ( char byte = buffer.sbumpc() ) {
@@ -177,7 +211,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             fostlib::json jobs;
                             for ( auto &job : cp->commands ) {
                                 fostlib::push_back(jobs, job.command);
-                                cp->write(ios, job.command, yield);
+                                cp->write(ctrlios, job.command, yield);
                                 ++p_resent;
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
@@ -191,7 +225,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         }
                     case '{': {
                             fostlib::string jsonstr{"{"};
-                            auto bytes = boost::asio::async_read_until(cp->resend.parent(ios), buffer, 0, yield[error]);
+                            auto bytes = boost::asio::async_read_until(cp->resend.parent(ctrlios), buffer, 0, yield[error]);
                             if ( not error ) {
                                 for ( ; bytes; --bytes ) {
                                     char next = buffer.sbumpc();
@@ -207,12 +241,12 @@ void wright::exec_helper(std::ostream &out, const char *command) {
             }
         }));
         /// Finally, drain the child's stderr
-        boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
+        boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
             fostlib::string line;
-            while ( cp->stderr.parent(ios).is_open() ) {
+            while ( cp->stderr.parent(auxios).is_open() ) {
                 boost::system::error_code error;
-                auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
+                auto bytes = boost::asio::async_read_until(cp->stderr.parent(auxios), buffer, '\n', yield[error]);
                 if ( error ) {
                     fostlib::log::error(cp->counters->reference)
                         ("", "Error reading child stderr")
@@ -235,34 +269,11 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         }));
     }
     /// Process the other end of the signal handler pipe
-    boost::asio::spawn(ios, exception_decorator([&](auto yield) {
-        boost::asio::streambuf buffer;
-        while ( sigchild->parent(ios).is_open() ) {
-            auto bytes = boost::asio::async_read(sigchild->parent(ios), buffer,
-                boost::asio::transfer_exactly(1), yield);
-            if ( bytes ) {
-                switch ( char byte = buffer.sbumpc() ) {
-                default:
-                    std::cerr << "Got signal byte " << int(byte) << std::endl;
-                    break;
-                case 'c':
-                    for ( auto &child : children ) {
-                        if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
-                            fostlib::log::critical(c_exec_helper)
-                                ("", "Immediate child dead -- Time to PANIC")
-                                ("child", "number", child.number)
-                                ("child", "pid", child.pid);
-                            fostlib::log::flush();
-                            std::exit(4);
-                        }
-                    }
-                }
-            }
-        }
-    }));
+    boost::asio::spawn(auxios, exception_decorator(
+        sigchild_reactor(auxios, children)));
 
     /// This process now needs to read from stdin and queue the jobs
-    boost::asio::posix::stream_descriptor as_stdin(ios);
+    boost::asio::posix::stream_descriptor as_stdin(ctrlios);
     {
         boost::system::error_code error;
         as_stdin.assign(dup(STDIN_FILENO), error);
@@ -276,8 +287,8 @@ void wright::exec_helper(std::ostream &out, const char *command) {
             std::exit(2);
         }
     }
-    boost::asio::spawn(ios, exception_decorator([&](auto yield) {
-            f5::eventfd::limiter limit{ios, yield, children.size() * wright::buffer_size};
+    boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
+            f5::eventfd::limiter limit{ctrlios, yield, children.size() * wright::buffer_size};
             boost::asio::streambuf buffer;
             while ( as_stdin.is_open() ) {
                 boost::system::error_code error;
@@ -300,7 +311,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     auto task = ++limit; // Must do this first so it can block
                     for ( auto &child : children ) {
                         if ( not child.commands.full() ) {
-                            child.write(ios, line, yield);
+                            child.write(ctrlios, line, yield);
                             child.commands.push_back(wright::job{line, std::move(task)});
                             ++p_accepted;
 //                             ++(child.counters->accepted);
