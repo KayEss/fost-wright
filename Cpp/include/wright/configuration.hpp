@@ -29,6 +29,9 @@ namespace wright {
     /// The child program to execute
     extern const fostlib::setting<fostlib::json> c_exec;
 
+    /// The port for the server
+    extern const fostlib::setting<fostlib::nullable<uint16_t>> c_port;
+
     /// Whether to simulate
     extern const fostlib::setting<bool> c_simulate;
     /// Set to false to stop the simulated worker from crashing

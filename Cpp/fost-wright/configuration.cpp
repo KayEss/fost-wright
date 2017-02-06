@@ -49,3 +49,6 @@ const fostlib::setting<fostlib::json> wright::c_exec(
         return cmd;
     }(), true);
 
+
+const fostlib::setting<fostlib::nullable<uint16_t>> wright::c_port(
+    __FILE__, "wright-exec-helper", "Server port", fostlib::null, true);
