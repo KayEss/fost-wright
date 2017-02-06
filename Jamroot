@@ -5,6 +5,7 @@ include ../fost-base/fost.jam ;
 use-project fost-base : ../fost-base/ ;
 use-project fost-internet : ../fost-internet/ ;
 fost-project fost-wright :
+        <include>../fost-internet/Cpp/include
     ;
 
 alias fost :
