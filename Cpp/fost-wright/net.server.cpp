@@ -19,3 +19,12 @@ rask::protocol<std::function<void(wright::packet::in&)>> wright::g_proto(
     },
     {});
 
+
+void wright::start_server(
+    boost::asio::io_service &listen_ios, boost::asio::io_service &sock_ios, uint16_t port
+) {
+    fostlib::host h(0);
+    boost::asio::ip::tcp::endpoint endpoint{h.address(), port};
+    auto accept = std::make_shared<boost::asio::ip::tcp::acceptor>(listen_ios, endpoint);
+}
+

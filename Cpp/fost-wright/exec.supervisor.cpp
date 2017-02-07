@@ -127,6 +127,11 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
 
+    /// If the port setting is turned on then we will start the server
+    if ( c_port.value() ) {
+        start_server(auxios, ctrlios, c_port.value().value());
+    }
+
     /// All the children need a presence in the reactor pool for
     /// their process requirement
     for ( auto &child : children ) {

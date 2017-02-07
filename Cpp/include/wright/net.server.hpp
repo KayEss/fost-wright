@@ -25,5 +25,18 @@ namespace wright {
     extern rask::protocol<std::function<void(wright::packet::in&)>> g_proto;
 
 
+    /// Hold the connection state
+    class connection : public fostlib::rask_tcp, public std::enable_shared_from_this<connection>
+    {
+    };
+
+
+    /// Listen for inbound connections. The `listen` service is used for
+    /// accepting connection and the `socket` service is used for the
+    /// subsequent sockets.
+    void start_server(boost::asio::io_service &listen, boost::asio::io_service &socket,
+        uint16_t port);
+
+
 }
 

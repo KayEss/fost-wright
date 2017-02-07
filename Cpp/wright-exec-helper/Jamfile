@@ -1,6 +1,7 @@
 fost-exe wright-exec-helper
     :
         $(TOP)/../Boost//boost-coroutine-dll
+        ../../../fost-internet/Cpp/fost-inet
         ../fost-wright
         wright-exec-helper.cpp
     ;
