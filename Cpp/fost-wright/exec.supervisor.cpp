@@ -207,7 +207,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         if ( signalled ) {
                             /// The work is done, but the child seems
                             /// to be looping in an error. Kill it
-                            ::kill(cp->pid, SIGINT);
+                            ::kill(cp->pid, SIGTERM);
                         } else {
                             auto logger = fostlib::log::debug(cp->counters->reference);
                             logger
