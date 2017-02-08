@@ -1,2 +1,8 @@
+2017-02-05  Kirit Saelensminde  <kirit@felspar.com>
+ Capture proper timing data for job execution times.
+
+2017-02-04  Kirit Saelensminde  <kirit@felspar.com>
+ Allow setting of the simulated work times.
+
 2017-01-29  Kirit Saelensminde  <kirit@felspar.com>
  Added ChangeLog

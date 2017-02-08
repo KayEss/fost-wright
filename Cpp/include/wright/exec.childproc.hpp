@@ -15,6 +15,7 @@
 
 #include <f5/threading/eventfd.hpp>
 #include <fost/counter>
+#include <fost/timer>
 
 #include <wright/pipe.hpp>
 
@@ -30,6 +31,13 @@ namespace wright {
 
     /// The main body loop for the child process
     void fork_worker();
+
+
+    struct job {
+        std::string command;
+        std::shared_ptr<f5::eventfd::limiter::job> limiter;
+        fostlib::timer time;
+    };
 
 
     struct childproc final : boost::noncopyable {
@@ -54,7 +62,7 @@ namespace wright {
         /// The PID that the child gets
         int pid;
         /// The current queue
-        boost::circular_buffer<std::pair<std::string, std::shared_ptr<f5::eventfd::limiter::job>>> commands;
+        boost::circular_buffer<job> commands;
 
         childproc(std::size_t n, const char *);
         childproc(childproc &&);

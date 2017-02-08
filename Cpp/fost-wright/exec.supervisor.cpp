@@ -25,6 +25,9 @@
 #include <unistd.h>
 
 
+using namespace std::literals::chrono_literals;
+
+
 namespace {
 
 
@@ -57,6 +60,9 @@ namespace {
 
 
 void wright::exec_helper(std::ostream &out, const char *command) {
+    /// We want to store statistics about the work done
+    fostlib::time_profile<std::chrono::milliseconds> job_times(5ms, 1.2, 20, 24ms);
+
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
     std::vector<wright::childproc> children;
@@ -104,11 +110,13 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     auto ret = cp->read(ios, buffer, yield[error]);
                     if ( not error && not ret.empty() &&
                             cp->commands.size() &&
-                            ret == cp->commands.front().first )
+                            ret == cp->commands.front().command )
                     {
                         ++p_completed;
 //                         ++(cp->counters->completed);
+                        job_times.record(cp->commands.front().time);
                         cp->commands.pop_front();
+                        if ( cp->commands.size() ) cp->commands.front().time.reset();
                         auto logger = fostlib::log::debug(c_exec_helper);
                         logger
                             ("", "Got result from child")
@@ -131,7 +139,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ("child", cp->pid)
                             ("error", error);
                     } else if ( not ret.empty() ) {
-                        auto &command = cp->commands.front().first;
+                        auto &command = cp->commands.front().command;
                         fostlib::log::debug(c_exec_helper)
                             ("", "Ignored line from child")
                             ("input", "string", ret.c_str())
@@ -173,8 +181,8 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                                 ("job", "count", cp->commands.size());
                             fostlib::json jobs;
                             for ( auto &job : cp->commands ) {
-                                fostlib::push_back(jobs, job.first);
-                                cp->write(ios, job.first, yield);
+                                fostlib::push_back(jobs, job.command);
+                                cp->write(ios, job.command, yield);
                                 ++p_resent;
                             }
                             if ( jobs.size() ) logger("job", "list", jobs);
@@ -206,7 +214,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         /// Finally, drain the child's stderr
         boost::asio::spawn(ios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
-            std::string line;
+            fostlib::string line;
             while ( cp->stderr.parent(ios).is_open() ) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(cp->stderr.parent(ios), buffer, '\n', yield[error]);
@@ -221,10 +229,11 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         char next = buffer.sbumpc();
                         if ( next != '\n' ) line += next;
                     }
+                    auto parsed = fostlib::json::parse(line, fostlib::json(line));
                     fostlib::log::warning(cp->counters->reference)
                         ("", "Child stderr")
                         ("child", cp->pid)
-                        ("stderr", line.c_str());
+                        ("stderr", parsed);
                     line.clear();
                 }
             }
@@ -297,7 +306,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     for ( auto &child : children ) {
                         if ( not child.commands.full() ) {
                             child.write(ios, line, yield);
-                            child.commands.push_back(std::make_pair(line, std::move(task)));
+                            child.commands.push_back(wright::job{line, std::move(task)});
                             requested.insert(line);
                             ++p_accepted;
 //                             ++(child.counters->accepted);
@@ -320,6 +329,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     }
 
     std::cerr << fostlib::performance::current() << std::endl;
+    std::cerr << fostlib::coerce<fostlib::json>(job_times) << std::endl;
     const bool success = (requested == completed);
     std::cerr << (success ? "All done" : "Some wrong") << std::endl;
 }

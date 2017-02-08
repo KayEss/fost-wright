@@ -9,6 +9,8 @@
 #include <wright/configuration.hpp>
 #include <wright/exec.hpp>
 
+#include <fost/timer>
+
 #include <chrono>
 #include <random>
 #include <thread>
@@ -20,31 +22,27 @@ using namespace std::chrono_literals;
 
 
 void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
-    decltype(std::chrono::high_resolution_clock::now()) from{}, to{};
-    const auto epoch = from.time_since_epoch();
-    decltype(to - from) total{};
-    unsigned int captures{};
+    bool first = true;
+    fostlib::timer time;
+    fostlib::time_profile<std::chrono::microseconds> times(5us, 1.2, 5);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::normal_distribution<float> rand(1000, 500);
-    const auto crash_limit = 1500;
+    std::normal_distribution<float> rand(c_sim_mean.value(), c_sim_sd.value());
+    const auto crash_limit = c_sim_mean.value() + c_sim_sd.value();
 
     std::string command;
     while ( in ) {
         std::getline(in, command);
         if ( in && not command.empty() ) {
-            to = std::chrono::high_resolution_clock::now();
-            if ( epoch < from.time_since_epoch() ) {
-                total += (to - from);
-                ++captures;
-            }
+            if ( not first ) times.record(time);
+            first = false;
             std::this_thread::sleep_for(rand(gen) * 1ms);
             if ( rand(gen) > crash_limit && c_can_die.value() ) {
                 report << "Crash during work... " << ::getpid() << std::endl;
                 exit(3); // Simulate a crash
             }
-            from = std::chrono::high_resolution_clock::now();
+            time.reset();
             out << command << std::endl;
         }
         if ( rand(gen) > crash_limit && c_can_die.value() ) {
@@ -53,7 +51,6 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
             exit(2); // Simulate a crash
         }
     }
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(total).count();
-    report << (us / captures) << "us across " << captures << " loops" << std::endl;
+    report << fostlib::json::unparse(fostlib::coerce<fostlib::json>(times), false) << std::endl;
 }
 
