@@ -4,4 +4,5 @@ fost-lib-autotest fost-wright
     :
         $(TOP)/../Boost//boost-coroutine-dll
         ../../../fost-internet/Cpp/fost-inet
+        ../../../fost-internet/Cpp/fost-rask-proto
     ;

@@ -29,6 +29,7 @@ int main(int argc, char *argv[]) {
         }()};
     args.commandSwitch("c", wright::c_child);
     args.commandSwitch("d", wright::c_can_die);
+    args.commandSwitch("p", wright::c_port);
     args.commandSwitch("rfd", wright::c_resend_fd);
     args.commandSwitch("-simulate", wright::c_simulate);
     args.commandSwitch("-sim-mean", wright::c_sim_mean);
