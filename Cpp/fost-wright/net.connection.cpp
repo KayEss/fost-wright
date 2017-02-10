@@ -11,6 +11,10 @@
 #include <wright/net.server.hpp>
 
 
-void wright::connection::process_inbound() {
+void wright::connection::process_inbound(boost::asio::yield_context &yield) {
+}
+
+
+void wright::connection::process_outbound(boost::asio::yield_context  &yield) {
 }
 

@@ -26,18 +26,18 @@ namespace wright {
 
 
     /// Hold the connection state
-    class connection : public fostlib::rask_tcp, public std::enable_shared_from_this<connection>
-    {
+    class connection final : public fostlib::rask_tcp {
     public:
         /// Create a connection that can be used to accept inbound connections
         connection(boost::asio::io_service &ios)
-        : socket(ios) {
+        : rask_tcp(ios) {
         }
 
-        boost::asio::ip::tcp::socket socket;
-
-        /// Process the inbound message queue
-        void process_inbound() override;
+    protected:
+        /// The inbound message stream
+        void process_inbound(boost::asio::yield_context &) override;
+        /// The outbound message stream
+        void process_outbound(boost::asio::yield_context &) override;
     };
 
 

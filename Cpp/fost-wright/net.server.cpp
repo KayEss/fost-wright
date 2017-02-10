@@ -33,7 +33,7 @@ namespace {
                         "Server accept", error.message().c_str());
                 } else {
                     fostlib::log::info(wright::c_exec_helper, "Connection accepted");
-                    cnx->process_inbound();
+                    cnx->process();
                 }
             });
     }
