@@ -34,7 +34,7 @@ namespace wright {
         }
 
     protected:
-        /// The inbound message stream
+        /// Process inbound messages
         void process_inbound(boost::asio::yield_context &) override;
         /// The outbound message stream
         void process_outbound(boost::asio::yield_context &) override;

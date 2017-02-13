@@ -18,11 +18,6 @@ namespace wright {
     namespace packet {
 
 
-        /// In bound packet
-        class in {
-        };
-
-
     }
 
 

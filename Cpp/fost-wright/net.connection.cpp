@@ -10,8 +10,18 @@
 #include <wright/net.packets.hpp>
 #include <wright/net.server.hpp>
 
+#include <fost/log>
+
 
 void wright::connection::process_inbound(boost::asio::yield_context &yield) {
+    receive_loop(*this, yield,
+        [&](auto decode, uint8_t control, std::size_t bytes)
+    {
+        fostlib::log::error(c_exec_helper)
+            ("", "Not processed")
+            ("control", control)
+            ("size", bytes);
+    });
 }
 
 
