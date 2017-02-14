@@ -26,11 +26,11 @@ namespace wright {
 
 
     /// Hold the connection state
-    class connection final : public fostlib::rask_tcp {
+    class connection final : public rask::tcp_connection {
     public:
         /// Create a connection that can be used to accept inbound connections
         connection(boost::asio::io_service &ios)
-        : rask_tcp(ios) {
+        : tcp_connection(ios) {
         }
 
     protected:
