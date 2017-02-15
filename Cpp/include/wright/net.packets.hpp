@@ -9,16 +9,29 @@
 #pragma once
 
 
-#include <fost/rask/protocol>
+#include <wright/net.server.hpp>
 
 
 namespace wright {
 
 
-    namespace packet {
+    /// Inbound packet handlers
+    namespace in {
+
+
+        /// Process an inbound version packet
+        void version(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode);
+
+
+    }
+
+
+    /// Outbound packet producers
+    namespace out {
 
 
     }
 
 
 }
+

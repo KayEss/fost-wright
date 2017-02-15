@@ -21,12 +21,10 @@ namespace wright {
     }
 
 
-    /// The protocol description for Wright
-    extern rask::protocol<std::function<void(wright::packet::in&)>> g_proto;
-
-
     /// Hold the connection state
-    class connection final : public rask::tcp_connection {
+    class connection final :
+        public rask::tcp_connection,
+        public std::enable_shared_from_this<connection> {
     public:
         /// Create a connection that can be used to accept inbound connections
         connection(boost::asio::io_service &ios)
@@ -39,6 +37,12 @@ namespace wright {
         /// The outbound message stream
         void process_outbound(boost::asio::yield_context &) override;
     };
+
+
+    /// The protocol description for Wright
+    using protocol_definition = rask::protocol<std::function<
+        void(std::shared_ptr<connection>, rask::tcp_decoder&)>>;
+    extern protocol_definition g_proto;
 
 
     /// Listen for inbound connections. The `listen` service is used for

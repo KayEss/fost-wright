@@ -11,13 +11,17 @@
 #include <wright/net.server.hpp>
 
 
-rask::protocol<std::function<void(wright::packet::in&)>> wright::g_proto(
-    [](rask::control_byte control, wright::packet::in &packet) {
+wright::protocol_definition wright::g_proto(
+    [](rask::control_byte control, auto cnx, auto &decode) {
         fostlib::log::warning(c_exec_helper)
             ("", "Unknown control byte received")
             ("control", int(control));
     },
-    {});
+    {
+        { // Version 0
+            {0x80, in::version}
+        }
+    });
 
 
 namespace {
@@ -33,7 +37,7 @@ namespace {
                         "Server accept", error.message().c_str());
                 } else {
                     fostlib::log::info(wright::c_exec_helper, "Connection accepted");
-                    cnx->process();
+                    cnx->process(cnx);
                 }
             });
     }
