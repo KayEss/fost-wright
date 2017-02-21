@@ -86,10 +86,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// yet and if the blocker has been signalled
     bool in_closed{false}, signalled{false};
 
-    /// Add in some tracking for now so we can make sure that we have all
-    /// of the jobs done
-    std::set<std::string> requested, completed;
-
     /// Stop on exception, one thread. We want one thread here so
     /// we don't have to worry about thread synchronisation when
     /// running code in the reactor
@@ -123,7 +119,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ("child", cp->pid)
                             ("result", ret.c_str());
                         out << ret << std::endl;
-                        completed.insert(ret);
                         if ( in_closed && not signalled ) {
                             const auto working = std::count_if(children.begin(), children.end(),
                                     [](const auto &c) { return not c.commands.empty(); });
@@ -307,7 +302,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         if ( not child.commands.full() ) {
                             child.write(ios, line, yield);
                             child.commands.push_back(wright::job{line, std::move(task)});
-                            requested.insert(line);
                             ++p_accepted;
 //                             ++(child.counters->accepted);
                             break;
@@ -330,7 +324,5 @@ void wright::exec_helper(std::ostream &out, const char *command) {
 
     std::cerr << fostlib::performance::current() << std::endl;
     std::cerr << fostlib::coerce<fostlib::json>(job_times) << std::endl;
-    const bool success = (requested == completed);
-    std::cerr << (success ? "All done" : "Some wrong") << std::endl;
 }
 
