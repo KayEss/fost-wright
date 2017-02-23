@@ -174,14 +174,21 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ("child", cp->pid)
                             ("error", error);
                     } else if ( not ret.empty() ) {
-                        auto &command = cp->commands.front().command;
-                        fostlib::log::debug(c_exec_helper)
-                            ("", "Ignored line from child")
-                            ("input", "string", ret.c_str())
-                            ("input", "size", ret.size())
-                            ("expected", "string", command.c_str())
-                            ("expected", "size", command.size())
-                            ("match", ret == command);
+                        if ( cp->commands.empty() ) {
+                            fostlib::log::debug(c_exec_helper)
+                                ("", "Ignored line from child")
+                                ("input", "string", ret.c_str())
+                                ("input", "size", ret.size());
+                        } else {
+                            auto &command = cp->commands.front().command;
+                            fostlib::log::debug(c_exec_helper)
+                                ("", "Ignored line from child")
+                                ("input", "string", ret.c_str())
+                                ("input", "size", ret.size())
+                                ("expected", "string", command.c_str())
+                                ("expected", "size", command.size())
+                                ("match", ret == command);
+                        }
                     }
                 }
                 fostlib::log::info(c_exec_helper)
