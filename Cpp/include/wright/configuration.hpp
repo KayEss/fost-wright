@@ -31,6 +31,8 @@ namespace wright {
 
     /// The port for the server
     extern const fostlib::setting<fostlib::nullable<uint16_t>> c_port;
+    /// The netloc to connect to (instead of reading from stdin)
+    extern const fostlib::setting<fostlib::nullable<fostlib::string>> c_connect;
 
     /// Whether to simulate
     extern const fostlib::setting<bool> c_simulate;
