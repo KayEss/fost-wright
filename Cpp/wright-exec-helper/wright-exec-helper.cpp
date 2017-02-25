@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
         }()};
 
     /// Process the command switches (that control the task)
-    args.commandSwitch("c", wright::c_child);
+    args.commandSwitch("-child", wright::c_child);
     args.commandSwitch("-simulate", wright::c_simulate);
 
     auto run = [&](auto &logger, auto &task) {

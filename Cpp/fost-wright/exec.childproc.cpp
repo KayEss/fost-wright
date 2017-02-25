@@ -94,7 +94,7 @@ wright::childproc::childproc(std::size_t n, const char *command)
     commands(buffer_size)
 {
     argv.push_back(command);
-    argv.push_back("-c");
+    argv.push_back("--child");
     argv.push_back(counters->reference.name()); // child number
     argv.push_back("-b"); // No banner
     argv.push_back("false");
