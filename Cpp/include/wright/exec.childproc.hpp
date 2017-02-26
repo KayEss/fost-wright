@@ -98,8 +98,13 @@ namespace wright {
 
 
     struct child_pool {
-        child_pool(std::size_t number, const char *command);
+        /// Construct the pool with the specified number of children
+        child_pool( std::size_t number, const char *command);
 
+        /// Start child signal processing
+        void sigchild_handling(boost::asio::io_service &ios);
+
+        /// The children
         std::vector<childproc> children;
     };
 

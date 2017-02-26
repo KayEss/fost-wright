@@ -37,54 +37,6 @@ namespace {
     fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
     fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
 
-    /// Pipe used to signall the event loop that a child has died
-    std::unique_ptr<wright::pipe_out> sigchild;
-
-    void sigchild_handler(int sig) {
-        const char child[] = "c";
-        /// Write a single byte into the pipe
-        ::write(sigchild->child(), child, 1u);
-    }
-    void attach_sigchild_handler() {
-        struct sigaction sa;
-        ::sigemptyset(&sa.sa_mask);
-        sa.sa_flags = 0; // No options needed
-        sa.sa_handler = sigchild_handler;
-        if ( ::sigaction(SIGCHLD, &sa, nullptr) < 0 ) {
-            throw fostlib::exceptions::not_implemented(__func__,
-                "Failed to establish signal handler for SIGCHLD");
-        }
-    }
-    auto sigchild_reactor(
-        boost::asio::io_service &auxios, std::vector<wright::childproc> &children
-    ) {
-        return [&](auto yield) {
-            boost::asio::streambuf buffer;
-            while ( sigchild->parent(auxios).is_open() ) {
-                auto bytes = boost::asio::async_read(sigchild->parent(auxios), buffer,
-                    boost::asio::transfer_exactly(1), yield);
-                if ( bytes ) {
-                    switch ( char byte = buffer.sbumpc() ) {
-                    default:
-                        std::cerr << "Got signal byte " << int(byte) << std::endl;
-                        break;
-                    case 'c':
-                        for ( auto &child : children ) {
-                            if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
-                                fostlib::log::critical(wright::c_exec_helper)
-                                    ("", "Immediate child dead -- Time to PANIC")
-                                    ("child", "number", child.number)
-                                    ("child", "pid", child.pid);
-                                fostlib::log::flush();
-                                std::exit(4);
-                            }
-                        }
-                    }
-                }
-            }
-        };
-    }
-
 
 }
 
@@ -96,10 +48,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
     child_pool pool(c_children.value(), command);
-    /// Now that we have children, we're going to want to deal with
-    /// their deaths
-    sigchild = std::make_unique<wright::pipe_out>();
-    attach_sigchild_handler();
 
     /// Set up a promise that we're going to wait to finish on
     std::promise<void> blocker;
@@ -273,8 +221,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         }));
     }
     /// Process the other end of the signal handler pipe
-    boost::asio::spawn(auxios, exception_decorator(
-        sigchild_reactor(auxios, pool.children)));
+    pool.sigchild_handling(auxios);
 
     /// This process now needs to read from stdin and queue the jobs
     boost::asio::posix::stream_descriptor as_stdin(ctrlios);
