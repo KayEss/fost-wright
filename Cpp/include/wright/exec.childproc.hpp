@@ -97,5 +97,12 @@ namespace wright {
     };
 
 
+    struct child_pool {
+        child_pool(std::size_t number, const char *command);
+
+        std::vector<childproc> children;
+    };
+
+
 }
 

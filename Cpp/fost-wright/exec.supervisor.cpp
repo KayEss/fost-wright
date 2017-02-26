@@ -95,16 +95,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
 
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
-    std::vector<wright::childproc> children;
-    /// For each child go through and fork and execvpe it
-    for ( std::size_t child{}; child < wright::c_children.value(); ++child ) {
-        children.emplace_back(child + 1, command);
-        children[child].fork_exec([&]() {
-            for ( auto &child : children ) {
-                child.close();
-            }
-        });
-    }
+    child_pool pool(c_children.value(), command);
     /// Now that we have children, we're going to want to deal with
     /// their deaths
     sigchild = std::make_unique<wright::pipe_out>();
@@ -134,7 +125,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
 
     /// All the children need a presence in the reactor pool for
     /// their process requirement
-    for ( auto &child : children ) {
+    for ( auto &child : pool.children ) {
         /// Each child will wait on the command, then write it
         /// the pipe for the process to execute and wait on the result
         auto *cp = &child;
@@ -160,7 +151,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ("result", ret.c_str());
                         out << ret << std::endl;
                         if ( in_closed && not signalled ) {
-                            const auto working = std::count_if(children.begin(), children.end(),
+                            const auto working = std::count_if(pool.children.begin(), pool.children.end(),
                                     [](const auto &c) { return not c.commands.empty(); });
                             logger("still-working", working);
                             if ( working == 0 ) {
@@ -283,7 +274,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     }
     /// Process the other end of the signal handler pipe
     boost::asio::spawn(auxios, exception_decorator(
-        sigchild_reactor(auxios, children)));
+        sigchild_reactor(auxios, pool.children)));
 
     /// This process now needs to read from stdin and queue the jobs
     boost::asio::posix::stream_descriptor as_stdin(ctrlios);
@@ -301,7 +292,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         }
     }
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
-            f5::eventfd::limiter limit{ctrlios, yield, children.size() * wright::buffer_size};
+            f5::eventfd::limiter limit{ctrlios, yield, pool.children.size() * wright::buffer_size};
             boost::asio::streambuf buffer;
             while ( as_stdin.is_open() ) {
                 boost::system::error_code error;
@@ -322,7 +313,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         }
                     }
                     auto task = ++limit; // Must do this first so it can block
-                    for ( auto &child : children ) {
+                    for ( auto &child : pool.children ) {
                         if ( not child.commands.full() ) {
                             child.write(ctrlios, line, yield);
                             child.commands.push_back(wright::job{line, std::move(task)});
@@ -341,7 +332,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     blocker_ready.wait();
 
     /// Terminating. Wait for children
-    for ( auto &child : children ) {
+    for ( auto &child : pool.children ) {
         child.stdin.close();
         waitpid(child.pid, nullptr, 0);
     }

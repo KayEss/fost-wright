@@ -183,3 +183,22 @@ void wright::childproc::close() {
     resend.close();
 }
 
+
+/*
+ * wright::child_pool
+ */
+
+
+wright::child_pool::child_pool(std::size_t number, const char *command) {
+    children.reserve(number);
+    /// For each child go through and fork and execvp it
+    for ( std::size_t child{}; child < number; ++child ) {
+        children.emplace_back(child + 1, command);
+        children[child].fork_exec([&]() {
+            for ( auto &child : children ) {
+                child.close();
+            }
+        });
+    }
+}
+
