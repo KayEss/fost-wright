@@ -30,7 +30,7 @@ namespace wright {
     extern const fostlib::setting<fostlib::json> c_exec;
 
     /// The port for the server
-    extern const fostlib::setting<fostlib::nullable<uint16_t>> c_port;
+    extern const fostlib::setting<uint16_t> c_port;
     /// The netloc to connect to (instead of reading from stdin)
     extern const fostlib::setting<fostlib::nullable<fostlib::string>> c_connect;
 

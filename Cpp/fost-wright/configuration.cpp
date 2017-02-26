@@ -50,8 +50,8 @@ const fostlib::setting<fostlib::json> wright::c_exec(
     }(), true);
 
 
-const fostlib::setting<fostlib::nullable<uint16_t>> wright::c_port(
-    __FILE__, "wright-exec-helper", "Server port", fostlib::null, true);
+const fostlib::setting<uint16_t> wright::c_port(
+    __FILE__, "wright-exec-helper", "Server port", 7788, true);
 const fostlib::setting<fostlib::nullable<fostlib::string>> wright::c_connect(
     __FILE__, "wright-exec-helper", "Connect to", fostlib::null, true);
 

@@ -22,7 +22,7 @@ namespace wright {
     void exec_helper(std::ostream &out, const char *command);
 
     /// Connect to a supervisor over the network
-    void netvisor(const fostlib::string &netloc);
+    void netvisor();
 
 
 }

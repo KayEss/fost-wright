@@ -30,6 +30,8 @@ namespace wright {
         connection(boost::asio::io_service &ios)
         : tcp_connection(ios) {
         }
+        /// Create a connection to a server
+        connection(boost::asio::io_service &ios, fostlib::host endpoint);
 
     protected:
         /// Process inbound messages
@@ -50,6 +52,9 @@ namespace wright {
     /// subsequent sockets.
     void start_server(boost::asio::io_service &listen, boost::asio::io_service &socket,
         uint16_t port);
+
+    /// Keep a connection to a server open
+    std::shared_ptr<connection> connect_to_server(boost::asio::io_service &ios, fostlib::host);
 
 
 }
