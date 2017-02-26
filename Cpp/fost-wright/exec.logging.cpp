@@ -54,3 +54,12 @@ fostlib::json wright::child_logging() {
     return ret;
 }
 
+
+fostlib::json wright::network_logging() {
+    fostlib::json ret, screen;
+    fostlib::insert(screen, "name", "stdout");
+    fostlib::insert(screen, "configuration", "log-level", 0);
+    fostlib::insert(screen, "configuration", "color", true);
+    fostlib::push_back(ret, "sinks", screen);
+    return ret;
+}

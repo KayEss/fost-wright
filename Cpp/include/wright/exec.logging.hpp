@@ -21,6 +21,9 @@ namespace wright {
     /// Return a logging configuration for use by the parent process
     fostlib::json parent_logging();
 
+    /// Return a logging configuration for use when connected over the network
+    fostlib::json network_logging();
+
 
 }
 

@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
             /// Simulate work by sleeping, and also keep crashing
             wright::echo(std::cin, std::cout, std::cerr);
         } else if ( wright::c_connect.value() ) {
-            run(wright::parent_logging, wright::netvisor)(args[0].value().c_str());
+            run(wright::network_logging, wright::netvisor)(args[0].value().c_str());
         } else if ( wright::c_child.value() ) {
             run(wright::child_logging, wright::fork_worker)();
         } else {
