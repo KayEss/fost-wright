@@ -16,7 +16,12 @@
 
 #include <iostream>
 
+#include <signal.h>
 #include <sys/wait.h>
+#include <unistd.h>
+
+
+using namespace std::literals::chrono_literals;
 
 
 void wright::fork_worker() {
@@ -247,7 +252,8 @@ namespace {
 }
 
 
-wright::child_pool::child_pool(std::size_t number, const char *command) {
+wright::child_pool::child_pool(std::size_t number, const char *command)
+: job_times(5ms, 1.2, 200, 24ms) {
     children.reserve(number);
     /// For each child go through and fork and execvp it
     for ( std::size_t child{}; child < number; ++child ) {

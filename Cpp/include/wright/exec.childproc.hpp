@@ -106,6 +106,8 @@ namespace wright {
 
         /// The children
         std::vector<childproc> children;
+        /// We want to store statistics about the work done
+        fostlib::time_profile<std::chrono::milliseconds> job_times;
     };
 
 

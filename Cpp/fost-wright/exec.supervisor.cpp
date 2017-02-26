@@ -42,9 +42,6 @@ namespace {
 
 
 void wright::exec_helper(std::ostream &out, const char *command) {
-    /// We want to store statistics about the work done
-    fostlib::time_profile<std::chrono::milliseconds> job_times(5ms, 1.2, 200, 24ms);
-
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
     child_pool pool(c_children.value(), command);
@@ -89,7 +86,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     {
                         ++p_completed;
 //                         ++(cp->counters->completed);
-                        job_times.record(cp->commands.front().time);
+                        pool.job_times.record(cp->commands.front().time);
                         cp->commands.pop_front();
                         if ( cp->commands.size() ) cp->commands.front().time.reset();
                         auto logger = fostlib::log::debug(c_exec_helper);
@@ -285,6 +282,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     }
 
     std::cerr << fostlib::performance::current() << std::endl;
-    std::cerr << fostlib::coerce<fostlib::json>(job_times) << std::endl;
+    std::cerr << fostlib::coerce<fostlib::json>(pool.job_times) << std::endl;
 }
 

@@ -13,6 +13,8 @@
 
 #include <f5/threading/boost-asio.hpp>
 
+#include <sys/wait.h>
+
 
 void wright::netvisor(const char *command) {
     /// Set up the child worker pool
@@ -35,5 +37,14 @@ void wright::netvisor(const char *command) {
 
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
+
+    /// Terminating. Wait for children
+    for ( auto &child : pool.children ) {
+        child.stdin.close();
+        waitpid(child.pid, nullptr, 0);
+    }
+
+    std::cerr << fostlib::performance::current() << std::endl;
+    std::cerr << fostlib::coerce<fostlib::json>(pool.job_times) << std::endl;
 }
 
