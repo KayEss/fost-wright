@@ -91,7 +91,7 @@ namespace {
 
 void wright::exec_helper(std::ostream &out, const char *command) {
     /// We want to store statistics about the work done
-    fostlib::time_profile<std::chrono::milliseconds> job_times(5ms, 1.2, 20, 24ms);
+    fostlib::time_profile<std::chrono::milliseconds> job_times(5ms, 1.2, 200, 24ms);
 
     /// The parent sets up the communications redirects etc and spawns
     /// child processes
