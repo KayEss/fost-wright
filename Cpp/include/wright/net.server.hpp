@@ -27,9 +27,7 @@ namespace wright {
         public std::enable_shared_from_this<connection> {
     public:
         /// Create a connection that can be used to accept inbound connections
-        connection(boost::asio::io_service &ios)
-        : tcp_connection(ios) {
-        }
+        connection(boost::asio::io_service &ios);
         /// Create a connection to a server
         connection(boost::asio::io_service &ios, fostlib::host endpoint);
 
@@ -38,6 +36,8 @@ namespace wright {
         void process_inbound(boost::asio::yield_context &) override;
         /// The outbound message stream
         void process_outbound(boost::asio::yield_context &) override;
+        /// The connection has been established
+        void established() override;
     };
 
 
