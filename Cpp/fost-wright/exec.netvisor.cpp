@@ -32,8 +32,9 @@ void wright::netvisor(const char *command) {
     auto &auxios = auxilliary.get_io_service();
 
     /// Set up the network connection to the server
-    fostlib::host end{c_connect.value().value(), c_port.value()};
-    std::cout << end << std::endl;
+    auto cnx = std::make_shared<connection>(ctrlios,
+        fostlib::host{c_connect.value().value(), c_port.value()});
+    cnx->process(cnx);
 
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
