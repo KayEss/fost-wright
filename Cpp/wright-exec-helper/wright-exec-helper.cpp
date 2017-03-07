@@ -38,8 +38,6 @@ int main(int argc, char *argv[]) {
             /// Build a suitable default loging configuration
             const fostlib::setting<fostlib::json> log_setting{
                 __FILE__, settings.c_logging, logger()};
-            /// Load the standard settings
-            fostlib::standard_arguments(settings, std::cerr, args);
             /// Load any provided settings files
             std::vector<fostlib::settings> configuration;
             configuration.reserve(args.size());
@@ -53,6 +51,8 @@ int main(int argc, char *argv[]) {
             args.commandSwitch("rfd", wright::c_resend_fd);
             args.commandSwitch("w", wright::c_children);
             args.commandSwitch("x", wright::c_exec);
+            /// Load the standard settings
+            fostlib::standard_arguments(settings, std::cerr, args);
             /// Start the logging
             fostlib::log::global_sink_configuration log_sinks(settings.c_logging.value());
             /// Run the task
