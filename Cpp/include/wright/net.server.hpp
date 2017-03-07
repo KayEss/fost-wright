@@ -28,8 +28,6 @@ namespace wright {
     public:
         /// Create a connection that can be used to accept inbound connections
         connection(boost::asio::io_service &ios);
-        /// Create a connection to a server
-        connection(boost::asio::io_service &ios, fostlib::host endpoint);
 
     protected:
         /// Process inbound messages

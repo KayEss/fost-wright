@@ -44,19 +44,6 @@ wright::connection::connection(boost::asio::io_service &ios)
 }
 
 
-wright::connection::connection(boost::asio::io_service &ios, fostlib::host endpoint)
-: connection(ios) {
-    /// Try to connect to the remote server
-    boost::asio::ip::tcp::resolver resolver{ios};
-    boost::asio::ip::tcp::resolver::query q(endpoint.name().c_str(), endpoint.service().value().c_str());
-    auto endp = resolver.resolve(q);
-    socket.open(endp->endpoint().protocol());
-    fostlib::log::debug(wright::c_exec_helper)
-        ("", "Connection established")
-        ("host", endpoint);
-}
-
-
 void wright::connection::process_inbound(boost::asio::yield_context &yield) {
     auto self = shared_from_this();
     receive_loop(*this, yield,

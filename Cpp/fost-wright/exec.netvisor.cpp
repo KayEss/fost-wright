@@ -32,9 +32,12 @@ void wright::netvisor(const char *command) {
     auto &auxios = auxilliary.get_io_service();
 
     /// Set up the network connection to the server
-    auto cnx = std::make_shared<connection>(ctrlios,
+    auto cnx = rask::tcp_connect<connection>(ctrlios,
         fostlib::host{c_connect.value().value(), c_port.value()});
-    cnx->process(cnx);
+    fostlib::log::info(wright::c_exec_helper)
+        ("", "Connection established")
+        ("host", c_connect.value())
+        ("port", c_port.value());
 
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
