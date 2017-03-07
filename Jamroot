@@ -11,6 +11,7 @@ fost-project fost-wright :
 alias fost :
         ../fost-base//fost
         ../fost-internet//fost
+        Configuration
         Cpp/wright-exec-helper
     ;
 
