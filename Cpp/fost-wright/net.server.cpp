@@ -40,7 +40,7 @@ namespace {
                     cnx->process(cnx);
                 }
             });
-        fostlib::log::info(wright::c_exec_helper, "Waiting for new connection");
+        fostlib::log::debug(wright::c_exec_helper, "Waiting for new connection");
     }
 }
 
