@@ -11,6 +11,8 @@
 
 #include <fost/rask/protocol>
 
+#include <future>
+
 
 namespace wright {
 
@@ -24,10 +26,15 @@ namespace wright {
     /// Hold the connection state
     class connection final :
         public rask::tcp_connection,
-        public std::enable_shared_from_this<connection> {
+        public std::enable_shared_from_this<connection>
+    {
+        std::promise<void> blocker;
     public:
         /// Create a connection that can be used to accept inbound connections
         connection(boost::asio::io_service &ios);
+
+        /// Block waiting for the connection to close
+        void wait_for_close();
 
     protected:
         /// Process inbound messages

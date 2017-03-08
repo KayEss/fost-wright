@@ -42,6 +42,9 @@ void wright::netvisor(const char *command) {
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
 
+    /// Wait for the connetion to end...
+    cnx->wait_for_close();
+
     /// Terminating. Wait for children
     for ( auto &child : pool.children ) {
         child.stdin.close();

@@ -44,6 +44,12 @@ wright::connection::connection(boost::asio::io_service &ios)
 }
 
 
+void wright::connection::wait_for_close() {
+    auto blocker_ready = blocker.get_future();
+    blocker_ready.wait();
+}
+
+
 void wright::connection::process_inbound(boost::asio::yield_context &yield) {
     auto self = shared_from_this();
     receive_loop(*this, yield,
@@ -51,6 +57,9 @@ void wright::connection::process_inbound(boost::asio::yield_context &yield) {
     {
         g_proto.dispatch(version(), control, self, decode);
     });
+    /// Network connection has closed...
+    fostlib::log::info(c_exec_helper, "Network connection closed -- releasing connection block");
+    blocker.set_value();
 }
 
 
