@@ -9,37 +9,10 @@
 #pragma once
 
 
-#include <fost/rask/protocol>
-#include <f5/threading/channel.hpp>
-
-#include <future>
+#include <wright/net.connection.hpp>
 
 
 namespace wright {
-
-
-    /// Hold the connection state
-    class connection final :
-        public rask::tcp_connection,
-        public std::enable_shared_from_this<connection>
-    {
-        std::promise<void> blocker;
-        f5::boost_asio::channel<rask::out_packet> queue;
-    public:
-        /// Create a connection that can be used to accept inbound connections
-        connection(boost::asio::io_service &ios);
-
-        /// Block waiting for the connection to close
-        void wait_for_close();
-
-    protected:
-        /// Process inbound messages
-        void process_inbound(boost::asio::yield_context &) override;
-        /// The outbound message stream
-        void process_outbound(boost::asio::yield_context &) override;
-        /// The connection has been established
-        void established() override;
-    };
 
 
     /// The protocol description for Wright
