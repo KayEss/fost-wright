@@ -30,3 +30,10 @@ void wright::in::version(std::shared_ptr<connection> cnx, rask::tcp_decoder &pac
         ("negotiated", "version", cnx->version());
 }
 
+
+rask::out_packet wright::out::version() {
+    rask::out_packet packet{0x80};
+    packet << g_proto.max_version();
+    return packet;
+}
+

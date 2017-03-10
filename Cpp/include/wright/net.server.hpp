@@ -10,17 +10,12 @@
 
 
 #include <fost/rask/protocol>
+#include <f5/threading/channel.hpp>
 
 #include <future>
 
 
 namespace wright {
-
-
-    namespace packet {
-        /// In bound packet
-        class in;
-    }
 
 
     /// Hold the connection state
@@ -29,6 +24,7 @@ namespace wright {
         public std::enable_shared_from_this<connection>
     {
         std::promise<void> blocker;
+        f5::boost_asio::channel<rask::out_packet> queue;
     public:
         /// Create a connection that can be used to accept inbound connections
         connection(boost::asio::io_service &ios);
@@ -49,7 +45,7 @@ namespace wright {
     /// The protocol description for Wright
     using protocol_definition = rask::protocol<std::function<
         void(std::shared_ptr<connection>, rask::tcp_decoder&)>>;
-    extern protocol_definition g_proto;
+    extern const protocol_definition g_proto;
 
 
     /// Listen for inbound connections. The `listen` service is used for

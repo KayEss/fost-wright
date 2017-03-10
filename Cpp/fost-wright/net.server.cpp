@@ -11,7 +11,7 @@
 #include <wright/net.server.hpp>
 
 
-wright::protocol_definition wright::g_proto(
+const wright::protocol_definition wright::g_proto(
     [](rask::control_byte control, auto cnx, auto &decode) {
         fostlib::log::warning(c_exec_helper)
             ("", "Unknown control byte received")

@@ -40,7 +40,7 @@ namespace {
 
 
 wright::connection::connection(boost::asio::io_service &ios)
-: tcp_connection(ios) {
+: tcp_connection(ios), queue(ios) {
 }
 
 
@@ -64,12 +64,15 @@ void wright::connection::process_inbound(boost::asio::yield_context &yield) {
 
 
 void wright::connection::process_outbound(boost::asio::yield_context  &yield) {
-//     while ( socket->is_open() ) {
-//     }
+    while ( socket.is_open() ) {
+        auto packet = queue.consume(yield);
+        packet(socket, yield);
+    }
 }
 
 
 void wright::connection::established() {
     live(shared_from_this());
+    queue.produce(out::version());
 }
 

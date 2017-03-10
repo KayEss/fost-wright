@@ -30,6 +30,10 @@ namespace wright {
     namespace out {
 
 
+        /// Create a version packet
+        rask::out_packet version();
+
+
     }
 
 
