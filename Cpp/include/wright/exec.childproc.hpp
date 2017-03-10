@@ -9,10 +9,6 @@
 #pragma once
 
 
-#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
-#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
-
-
 #include <f5/threading/eventfd.hpp>
 #include <fost/counter>
 #include <fost/timer>

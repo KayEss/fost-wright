@@ -9,10 +9,6 @@
 #pragma once
 
 
-#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
-#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
-
-
 #include <functional>
 #include <iostream>
 
