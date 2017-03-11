@@ -36,17 +36,34 @@ namespace {
     }
 
 
+    const fostlib::module c_cnx(wright::c_exec_helper, "connection");
+
+
 }
 
 
 wright::connection::connection(boost::asio::io_service &ios)
-: tcp_connection(ios), queue(ios) {
+: tcp_connection(ios), queue(ios), reference(c_cnx, std::to_string(id)) {
 }
 
 
 void wright::connection::wait_for_close() {
     auto blocker_ready = blocker.get_future();
     blocker_ready.wait();
+}
+
+
+std::size_t wright::connection::broadcast(std::function<rask::out_packet(void)> gen) {
+    std::unique_lock<std::mutex> lock(g_mutex);
+    std::size_t queued{};
+    for ( auto &w : g_connections ) {
+        auto cnx(w.lock());
+        if ( cnx ) {
+            cnx->queue.produce(gen());
+            ++queued;
+        }
+    }
+    return queued;
 }
 
 

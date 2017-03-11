@@ -22,6 +22,9 @@ namespace wright {
         /// Process an inbound version packet
         void version(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode);
 
+        /// Log message
+        void log_message(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode);
+
 
     }
 
@@ -32,6 +35,9 @@ namespace wright {
 
         /// Create a version packet
         rask::out_packet version();
+
+        /// Log message
+        rask::out_packet log_message(const fostlib::log::message &m);
 
 
     }

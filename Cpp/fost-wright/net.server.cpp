@@ -20,6 +20,9 @@ const wright::protocol_definition wright::g_proto(
     {
         { // Version 0
             {0x80, in::version}
+        },
+        { // Version 1
+            {0xe0, in::log_message}
         }
     });
 

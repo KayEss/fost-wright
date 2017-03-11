@@ -8,6 +8,7 @@
 
 #include <wright/configuration.hpp>
 #include <wright/exec.logging.hpp>
+#include <wright/net.packets.hpp>
 
 #include <fost/insert>
 #include <fost/log>
@@ -55,11 +56,32 @@ fostlib::json wright::child_logging() {
 }
 
 
+namespace {
+
+    struct netlog {
+        netlog(const fostlib::json &conf) {
+        }
+
+        bool operator () (const fostlib::log::message &m) {
+            wright::connection::broadcast([&m]() {
+                return wright::out::log_message(m);
+            });
+            return true;
+        }
+    };
+
+    const fostlib::log::global_sink<netlog> netlog_logger("wright.network");
+
+}
+
 fostlib::json wright::network_logging() {
-    fostlib::json ret, screen;
+    fostlib::json ret, screen, net;
     fostlib::insert(screen, "name", "stdout");
     fostlib::insert(screen, "configuration", "log-level", 0);
     fostlib::insert(screen, "configuration", "color", true);
     fostlib::push_back(ret, "sinks", screen);
+    fostlib::insert(net, "name", "wright.network");
+    fostlib::push_back(ret, "sinks", net);
     return ret;
 }
+
