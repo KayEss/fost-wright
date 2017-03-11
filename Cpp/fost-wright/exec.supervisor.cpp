@@ -9,6 +9,7 @@
 #include <wright/configuration.hpp>
 #include <wright/exception.hpp>
 #include <wright/exec.hpp>
+#include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
 #include <wright/net.server.hpp>
 
@@ -236,40 +237,33 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         }
     }
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
-            f5::eventfd::limiter limit{ctrlios, yield, pool.children.size() * wright::buffer_size};
-            boost::asio::streambuf buffer;
-            while ( as_stdin.is_open() ) {
-                boost::system::error_code error;
-                auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
-                if ( error ) {
-                    fostlib::log::info(c_exec_helper)
-                        ("", "Input error. Presumed end of work")
-                        ("error", error)
-                        ("bytes", bytes);
-                    in_closed = true;
-                    return;
-                } else if ( bytes ) {
-                    std::string line;
-                    for ( ; bytes; --bytes ) {
-                        char next = buffer.sbumpc();
-                        if ( next != 0 && next != '\n' ) {
-                            line += next;
-                        }
-                    }
-                    auto task = ++limit; // Must do this first so it can block
-                    for ( auto &child : pool.children ) {
-                        if ( not child.commands.full() ) {
-                            child.write(ctrlios, line, yield);
-                            child.commands.push_back(wright::job{line, std::move(task)});
-                            ++p_accepted;
-//                             ++(child.counters->accepted);
-                            break;
-                        }
+        capacity workers{ctrlios, pool};
+        boost::asio::streambuf buffer;
+        while ( as_stdin.is_open() ) {
+            boost::system::error_code error;
+            auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
+            if ( error ) {
+                fostlib::log::info(c_exec_helper)
+                    ("", "Input error. Presumed end of work")
+                    ("error", error)
+                    ("bytes", bytes);
+                in_closed = true;
+                return;
+            } else if ( bytes ) {
+                std::string line;
+                for ( ; bytes; --bytes ) {
+                    char next = buffer.sbumpc();
+                    if ( next != 0 && next != '\n' ) {
+                        line += next;
                     }
                 }
+                workers.next_job(std::move(line), yield);
+                ++p_accepted;
+//                 ++(child.counters->accepted);
             }
-            in_closed = true;
-        }));
+        }
+        in_closed = true;
+    }));
 
     /// This needs to block here until all processing is done
     auto blocker_ready = blocker.get_future();
