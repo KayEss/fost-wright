@@ -6,7 +6,10 @@
 */
 
 
+#include <wright/configuration.hpp>
 #include <wright/exec.capacity.hpp>
+
+#include <fost/log>
 
 
 wright::capacity::capacity(boost::asio::io_service &ios, child_pool &p)
@@ -20,8 +23,12 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
         if ( not child.commands.full() ) {
             child.write(limit.get_io_service(), job, yield);
             child.commands.push_back(wright::job{job, std::move(task)});
+//             ++(child.counters->accepted);
             return;
         }
     }
+    fostlib::log::error(c_exec_helper, "Got a job and nowhere to put it");
+    fostlib::log::flush();
+    std::exit(6);
 }
 

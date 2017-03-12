@@ -64,11 +64,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
 
-    /// If the port setting is turned on then we will start the server
-    if ( c_port.value() ) {
-        start_server(auxios, ctrlios, c_port.value());
-    }
-
     /// All the children need a presence in the reactor pool for
     /// their process requirement
     for ( auto &child : pool.children ) {
@@ -220,6 +215,12 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     }
     /// Process the other end of the signal handler pipe
     pool.sigchild_handling(auxios);
+    /// Set up the child pool capacity
+    capacity workers{ctrlios, pool};
+    /// If the port setting is turned on then we will start the server
+    if ( c_port.value() ) {
+        start_server(auxios, ctrlios, c_port.value());
+    }
 
     /// This process now needs to read from stdin and queue the jobs
     boost::asio::posix::stream_descriptor as_stdin(ctrlios);
@@ -233,11 +234,10 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 "   cat commands.txt | wright-exec-helper\n"
                 "instead of\n"
                 "   wright-exec-helper < commands.txt" << std::endl;
-            std::exit(2);
+            std::exit(1);
         }
     }
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
-        capacity workers{ctrlios, pool};
         boost::asio::streambuf buffer;
         while ( as_stdin.is_open() ) {
             boost::system::error_code error;
@@ -259,7 +259,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 }
                 workers.next_job(std::move(line), yield);
                 ++p_accepted;
-//                 ++(child.counters->accepted);
             }
         }
         in_closed = true;

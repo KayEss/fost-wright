@@ -41,6 +41,8 @@ void wright::netvisor(const char *command) {
 
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
+    /// Track the worker capacity
+    capacity workers{ctrlios, pool};
 
     /// Wait for the connetion to end...
     cnx->wait_for_close();
