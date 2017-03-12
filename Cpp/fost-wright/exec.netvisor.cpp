@@ -8,6 +8,7 @@
 
 #include <wright/configuration.hpp>
 #include <wright/exec.hpp>
+#include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
 #include <wright/net.server.hpp>
 
@@ -31,18 +32,19 @@ void wright::netvisor(const char *command) {
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
 
-    /// Set up the network connection to the server
-    auto cnx = rask::tcp_connect<connection>(ctrlios,
-        fostlib::host{c_connect.value().value(), c_port.value()});
-    fostlib::log::info(wright::c_exec_helper)
-        ("", "Connection established")
-        ("host", c_connect.value())
-        ("port", c_port.value());
-
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
     /// Track the worker capacity
     capacity workers{ctrlios, pool};
+
+    /// Set up the network connection to the server
+    auto cnx = rask::tcp_connect<connection>(
+        fostlib::host{c_connect.value().value(), c_port.value()},
+        ctrlios, connection::client_side, workers);
+    fostlib::log::info(wright::c_exec_helper)
+        ("", "Connection established")
+        ("host", c_connect.value())
+        ("port", c_port.value());
 
     /// Wait for the connetion to end...
     cnx->wait_for_close();

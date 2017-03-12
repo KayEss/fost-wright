@@ -29,12 +29,14 @@ const wright::protocol_definition wright::g_proto(
 
 namespace {
     void accept(
-        boost::asio::io_service &ios, std::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor
+        boost::asio::io_service &ios,
+        std::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor,
+        wright::capacity &cap
     ) {
-        auto cnx = std::make_shared<wright::connection>(ios);
+        auto cnx = std::make_shared<wright::connection>(ios, wright::connection::server_side, cap);
         acceptor->async_accept(cnx->socket,
-            [&ios, acceptor, cnx](const boost::system::error_code &error ) {
-                accept(ios, acceptor);
+            [&ios, acceptor, cnx, &cap](const boost::system::error_code &error ) {
+                accept(ios, acceptor, cap);
                 if ( error ) {
                     fostlib::log::error(wright::c_exec_helper,
                         "Server accept", error.message().c_str());
@@ -49,11 +51,11 @@ namespace {
 
 
 void wright::start_server(
-    boost::asio::io_service &listen_ios, boost::asio::io_service &sock_ios, uint16_t port
+    boost::asio::io_service &listen_ios, boost::asio::io_service &sock_ios, uint16_t port, capacity &cap
 ) {
     fostlib::host h(0);
     boost::asio::ip::tcp::endpoint endpoint{h.address(), port};
     auto acceptor = std::make_shared<boost::asio::ip::tcp::acceptor>(listen_ios, endpoint);
-    accept(sock_ios, acceptor);
+    accept(sock_ios, acceptor, cap);
 }
 

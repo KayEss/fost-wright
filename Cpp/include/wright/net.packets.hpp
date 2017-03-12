@@ -15,6 +15,9 @@
 namespace wright {
 
 
+    class capacity;
+
+
     /// Inbound packet handlers
     namespace in {
 
@@ -34,7 +37,10 @@ namespace wright {
 
 
         /// Create a version packet
-        rask::out_packet version();
+        rask::out_packet version(capacity &);
+
+        /// Send a job over the wire
+        rask::out_packet execute(std::string);
 
         /// Log message
         rask::out_packet log_message(const fostlib::log::message &m);

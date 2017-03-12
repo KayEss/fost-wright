@@ -8,8 +8,17 @@
 
 #include <wright/configuration.hpp>
 #include <wright/exec.capacity.hpp>
+#include <wright/net.connection.hpp>
+#include <wright/net.packets.hpp>
 
 #include <fost/log>
+
+
+namespace {
+    void increase(f5::eventfd::limiter &limit, uint64_t cap) {
+        limit.increase_limit(cap);
+    }
+}
 
 
 wright::capacity::capacity(boost::asio::io_service &ios, child_pool &p)
@@ -27,8 +36,26 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
             return;
         }
     }
+    for ( auto &cxv : connections ) {
+        auto cnx = cxv.first.lock();
+        if ( cnx && cxv.second ) {
+            cnx->queue.produce(out::execute(std::move(job)));
+            return;
+        }
+    }
     fostlib::log::error(c_exec_helper, "Got a job and nowhere to put it");
     fostlib::log::flush();
     std::exit(6);
+}
+
+
+void wright::capacity::additional(std::shared_ptr<connection> cnx, uint64_t cap) {
+    auto found = connections.find(cnx);
+    if ( found == connections.end() ) {
+        connections[cnx] = cap;
+        increase(limit, cap);
+    } else {
+        throw fostlib::exceptions::not_implemented(__func__, "Where the connection is already known");
+    }
 }
 

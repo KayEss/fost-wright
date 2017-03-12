@@ -225,7 +225,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     capacity workers{ctrlios, pool};
     /// If the port setting is turned on then we will start the server
     if ( c_port.value() ) {
-        start_server(auxios, ctrlios, c_port.value());
+        start_server(auxios, ctrlios, c_port.value(), workers);
     }
 
     /// This process now needs to read from stdin and queue the jobs

@@ -15,6 +15,9 @@
 namespace wright {
 
 
+    class capacity;
+
+
     /// The protocol description for Wright
     using protocol_definition = rask::protocol<std::function<
         void(std::shared_ptr<connection>, rask::tcp_decoder&)>>;
@@ -24,8 +27,8 @@ namespace wright {
     /// Listen for inbound connections. The `listen` service is used for
     /// accepting connection and the `socket` service is used for the
     /// subsequent sockets.
-    void start_server(boost::asio::io_service &listen, boost::asio::io_service &socket,
-        uint16_t port);
+    void start_server(boost::asio::io_service &listen_ios,
+        boost::asio::io_service &socket_ios, uint16_t port, capacity &);
 
     /// Keep a connection to a server open
     std::shared_ptr<connection> connect_to_server(boost::asio::io_service &ios, fostlib::host);

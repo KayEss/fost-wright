@@ -42,8 +42,8 @@ namespace {
 }
 
 
-wright::connection::connection(boost::asio::io_service &ios)
-: tcp_connection(ios), queue(ios), reference(c_cnx, std::to_string(id)) {
+wright::connection::connection(boost::asio::io_service &ios, peering p, wright::capacity &cap)
+: tcp_connection(ios, p), queue(ios), capacity(cap), reference(c_cnx, std::to_string(id)) {
 }
 
 
@@ -90,6 +90,6 @@ void wright::connection::process_outbound(boost::asio::yield_context  &yield) {
 
 void wright::connection::established() {
     live(shared_from_this());
-    queue.produce(out::version());
+    queue.produce(out::version(capacity));
 }
 
