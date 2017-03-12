@@ -39,6 +39,12 @@ namespace {
     fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
 
 
+    /// An exception recovery handler we can use here
+    auto exit_on_error = []() {
+        std::exit(9);
+    };
+
+
 }
 
 
@@ -126,7 +132,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 fostlib::log::info(c_exec_helper)
                     ("", "Child done")
                     ("pid", cp->pid);
-            }));
+            }, exit_on_error));
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
@@ -184,7 +190,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     }
                 }
             }
-        }));
+        }, exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
             boost::asio::streambuf buffer;
@@ -262,7 +268,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
             }
         }
         in_closed = true;
-    }));
+    }, exit_on_error));
 
     /// This needs to block here until all processing is done
     auto blocker_ready = blocker.get_future();
