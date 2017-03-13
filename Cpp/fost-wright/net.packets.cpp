@@ -65,6 +65,10 @@ rask::out_packet wright::out::execute(std::string job) {
     packet << fostlib::utf::u8_view(job);
     return packet;
 }
+void wright::in::execute(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {
+    ++p_in_execute;
+    auto job = rask::read<fostlib::utf8_string>(packet).underlying();
+}
 
 
 namespace {

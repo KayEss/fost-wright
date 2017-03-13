@@ -22,6 +22,7 @@ const wright::protocol_definition wright::g_proto(
             {0x80, in::version}
         },
         { // Version 1
+            {0x90, in::execute},
             {0xe0, in::log_message}
         }
     });

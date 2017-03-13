@@ -25,6 +25,9 @@ namespace wright {
         /// Process an inbound version packet
         void version(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode);
 
+        /// A job has been recived
+        void execute(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode);
+
         /// Log message
         void log_message(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode);
 

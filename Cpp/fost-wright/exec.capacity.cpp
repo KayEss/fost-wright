@@ -38,7 +38,8 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
     }
     for ( auto &cxv : connections ) {
         auto cnx = cxv.first.lock();
-        if ( cnx && cxv.second ) {
+        if ( cnx && cxv.second.cap ) {
+            cxv.second.work[job] = std::move(task);
             cnx->queue.produce(out::execute(std::move(job)));
             return;
         }
@@ -52,7 +53,7 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
 void wright::capacity::additional(std::shared_ptr<connection> cnx, uint64_t cap) {
     auto found = connections.find(cnx);
     if ( found == connections.end() ) {
-        connections[cnx] = cap;
+        connections[cnx] = remote{cap};
         increase(limit, cap);
     } else {
         throw fostlib::exceptions::not_implemented(__func__, "Where the connection is already known");

@@ -23,7 +23,11 @@ namespace wright {
         f5::eventfd::limiter limit;
         child_pool &pool;
         using weak_connection = std::weak_ptr<connection>;
-        std::map<weak_connection, uint64_t, std::owner_less<weak_connection>> connections;
+        struct remote {
+            uint64_t cap;
+            std::map<std::string, std::unique_ptr<f5::eventfd::limiter::job>> work;
+        };
+        std::map<weak_connection, remote, std::owner_less<weak_connection>> connections;
     public:
         /// Create the initial capacity based on the local workers
         capacity(boost::asio::io_service &ios, child_pool &pool);
