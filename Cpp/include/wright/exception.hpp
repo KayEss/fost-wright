@@ -21,7 +21,15 @@ namespace wright {
 
 
     /// Exception recovery function that re-throws the exception.
-    const auto rethrow = []() { throw; };
+    const auto rethrow = []() {
+        throw;
+    };
+
+    /// An exception recovery handler we can use here
+    const auto exit_on_error = []() {
+        std::exit(9);
+    };
+
 
     /// Wrap a function to display exceptions
     const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {

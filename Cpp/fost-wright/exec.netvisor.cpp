@@ -7,6 +7,7 @@
 
 
 #include <wright/configuration.hpp>
+#include <wright/exception.hpp>
 #include <wright/exec.hpp>
 #include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
@@ -31,6 +32,16 @@ void wright::netvisor(const char *command) {
     /// exception and uses more threads.
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
+
+    /// Go through each child and service them properly
+    for ( auto &child : pool.children ) {
+        /// Use a pointer which we can easily capture in lambdas
+        auto *cp = &child;
+        /// Finally, drain the child's stderr
+        boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
+            cp->drain_stderr(auxios, yield);
+        }));
+    }
 
     /// Start the child signal processing
     pool.sigchild_handling(auxios);

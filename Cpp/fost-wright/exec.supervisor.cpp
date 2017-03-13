@@ -39,12 +39,6 @@ namespace {
     fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
 
 
-    /// An exception recovery handler we can use here
-    auto exit_on_error = []() {
-        std::exit(9);
-    };
-
-
 }
 
 
@@ -193,30 +187,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         }, exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
-            boost::asio::streambuf buffer;
-            fostlib::string line;
-            while ( cp->stderr.parent(auxios).is_open() ) {
-                boost::system::error_code error;
-                auto bytes = boost::asio::async_read_until(cp->stderr.parent(auxios), buffer, '\n', yield[error]);
-                if ( error ) {
-                    fostlib::log::error(cp->counters->reference)
-                        ("", "Error reading child stderr")
-                        ("error", error)
-                        ("bytes", bytes);
-                    return;
-                } else if ( bytes ) {
-                    while ( bytes-- ) {
-                        char next = buffer.sbumpc();
-                        if ( next != '\n' ) line += next;
-                    }
-                    auto parsed = fostlib::json::parse(line, fostlib::json(line));
-                    fostlib::log::warning(cp->counters->reference)
-                        ("", "Child stderr")
-                        ("child", cp->pid)
-                        ("stderr", parsed);
-                    line.clear();
-                }
-            }
+            cp->drain_stderr(auxios, yield);
         }));
     }
     /// Process the other end of the signal handler pipe

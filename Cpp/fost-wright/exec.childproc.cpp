@@ -184,6 +184,36 @@ std::string wright::childproc::read(
 }
 
 
+void wright::childproc::drain_stderr(
+    boost::asio::io_service &auxios, boost::asio::yield_context &yield
+) {
+    boost::asio::streambuf buffer;
+    fostlib::string line;
+    while ( stderr.parent(auxios).is_open() ) {
+        boost::system::error_code error;
+        auto bytes = boost::asio::async_read_until(stderr.parent(auxios), buffer, '\n', yield[error]);
+        if ( error ) {
+            fostlib::log::error(counters->reference)
+                ("", "Error reading child stderr")
+                ("error", error)
+                ("bytes", bytes);
+            return;
+        } else if ( bytes ) {
+            while ( bytes-- ) {
+                char next = buffer.sbumpc();
+                if ( next != '\n' ) line += next;
+            }
+            auto parsed = fostlib::json::parse(line, fostlib::json(line));
+            fostlib::log::warning(counters->reference)
+                ("", "Child stderr")
+                ("child", pid)
+                ("stderr", parsed);
+            line.clear();
+        }
+    }
+}
+
+
 void wright::childproc::close() {
     stdin.close();
     stdout.close();
