@@ -24,6 +24,16 @@
 using namespace std::literals::chrono_literals;
 
 
+namespace {
+
+
+    fostlib::performance p_crashes(wright::c_exec_helper, "child", "crashed");
+    fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
+
+
+}
+
+
 void wright::fork_worker() {
     /// Read in the command line we're going to run
     std::vector<fostlib::string> argvs;
@@ -181,6 +191,67 @@ std::string wright::childproc::read(
         return line;
     }
     return std::string();
+}
+
+
+void wright::childproc::handle_child_requests(
+    boost::asio::io_service &ctrlios, bool &signalled, boost::asio::yield_context &yield
+) {
+    boost::asio::streambuf buffer;
+    boost::system::error_code error;
+    while ( resend.parent(ctrlios).is_open() ) {
+        auto bytes = boost::asio::async_read(resend.parent(ctrlios), buffer,
+            boost::asio::transfer_exactly(1), yield);
+        if ( bytes ) {
+            switch ( char byte = buffer.sbumpc() ) {
+            default:
+                fostlib::log::warning(counters->reference)
+                    ("", "Got unkown resend request byte")
+                    ("byte", int(byte));
+                break;
+            case 'r':
+                ++p_crashes;
+                if ( signalled ) {
+                    /// The work is done, but the child seems
+                    /// to be looping in an error. Kill it
+                    ::kill(pid, SIGTERM);
+                } else {
+                    auto logger = fostlib::log::debug(counters->reference);
+                    logger
+                        ("", "Resending jobs for child")
+                        ("child", pid)
+                        ("job", "count", commands.size());
+                    fostlib::json jobs;
+                    for ( auto &job : commands ) {
+                        fostlib::push_back(jobs, job.command);
+                        write(ctrlios, job.command, yield);
+                        ++p_resent;
+                    }
+                    if ( jobs.size() ) logger("job", "list", jobs);
+                }
+                break;
+            case 'x': {
+                    fostlib::log::critical(counters->reference,
+                        "Child process failed to execvp worker process");
+                    fostlib::log::flush();
+                    std::exit(10);
+                }
+            case '{': {
+                    fostlib::string jsonstr{"{"};
+                    auto bytes = boost::asio::async_read_until(resend.parent(ctrlios), buffer, 0, yield[error]);
+                    if ( not error ) {
+                        for ( ; bytes; --bytes ) {
+                            char next = buffer.sbumpc();
+                            if ( next ) jsonstr += next;
+                        }
+                    }
+                    fostlib::log::log(fostlib::log::message(
+                        counters->reference, fostlib::json::parse(jsonstr)));
+                    break;
+                }
+            }
+        }
+    }
 }
 
 

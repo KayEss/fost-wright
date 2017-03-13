@@ -88,6 +88,9 @@ namespace wright {
         std::string read(boost::asio::io_service &ios, boost::asio::streambuf &buffer,
             boost::asio::yield_context yield);
 
+        /// Handle requests from the child
+        void handle_child_requests(boost::asio::io_service &ctlios, bool &signalled,
+            boost::asio::yield_context &yield);
         /// Drain stderr for the child, transforming into log messages
         void drain_stderr(boost::asio::io_service &auxios, boost::asio::yield_context &yield);
 

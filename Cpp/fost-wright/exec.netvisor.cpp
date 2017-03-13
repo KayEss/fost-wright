@@ -22,6 +22,9 @@ void wright::netvisor(const char *command) {
     /// Set up the child worker pool
     child_pool pool(c_children.value(), command);
 
+    /// Set to true when the blocker has been signalled
+    bool signalled{false};
+
     /// Stop on exception, one thread. We want one thread here so
     /// we don't have to worry about thread synchronisation when
     /// running code in the reactor
@@ -37,6 +40,10 @@ void wright::netvisor(const char *command) {
     for ( auto &child : pool.children ) {
         /// Use a pointer which we can easily capture in lambdas
         auto *cp = &child;
+        /// We also need to watch for a resend alert from the child process
+        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
+            cp->handle_child_requests(ctrlios, signalled, yield);
+        }, exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
             cp->drain_stderr(auxios, yield);
