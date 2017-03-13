@@ -11,6 +11,8 @@
 
 #include <wright/exec.childproc.hpp>
 
+#include <f5/threading/channel.hpp>
+
 
 namespace wright {
 
@@ -29,6 +31,8 @@ namespace wright {
         };
         std::map<weak_connection, remote, std::owner_less<weak_connection>> connections;
     public:
+        /// Overspill for the capacity
+        f5::boost_asio::channel<std::string> overspill;
         /// Create the initial capacity based on the local workers
         capacity(boost::asio::io_service &ios, child_pool &pool);
 

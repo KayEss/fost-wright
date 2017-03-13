@@ -14,15 +14,8 @@
 #include <fost/log>
 
 
-namespace {
-    void increase(f5::eventfd::limiter &limit, uint64_t cap) {
-        limit.increase_limit(cap);
-    }
-}
-
-
 wright::capacity::capacity(boost::asio::io_service &ios, child_pool &p)
-: limit(ios, p.children.size() * wright::buffer_size), pool(p) {
+: limit(ios, p.children.size() * wright::buffer_size), pool(p), overspill(ios) {
 }
 
 
@@ -54,7 +47,7 @@ void wright::capacity::additional(std::shared_ptr<connection> cnx, uint64_t cap)
     auto found = connections.find(cnx);
     if ( found == connections.end() ) {
         connections[cnx] = remote{cap};
-        increase(limit, cap);
+        limit.increase_limit(cap);
     } else {
         throw fostlib::exceptions::not_implemented(__func__, "Where the connection is already known");
     }

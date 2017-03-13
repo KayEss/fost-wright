@@ -67,7 +67,7 @@ rask::out_packet wright::out::execute(std::string job) {
 }
 void wright::in::execute(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {
     ++p_in_execute;
-    auto job = rask::read<fostlib::utf8_string>(packet).underlying();
+    cnx->capacity.overspill.produce(rask::read<fostlib::utf8_string>(packet).underlying());
 }
 
 
