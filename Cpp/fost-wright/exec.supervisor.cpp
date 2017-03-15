@@ -37,6 +37,23 @@ namespace {
     fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
 
 
+    boost::asio::posix::stream_descriptor connect_stdin(boost::asio::io_service &ctrlios) {
+        boost::asio::posix::stream_descriptor as_stdin{ctrlios};
+        boost::system::error_code error;
+        as_stdin.assign(dup(STDIN_FILENO), error);
+        if ( error ) {
+            std::cerr << "Cannot assign stdin to the reactor pool. This "
+                "probably means you're trying to redirect a file rather "
+                "than pipe the commands\n\nI.e. try this:\n"
+                "   cat commands.txt | wright-exec-helper\n"
+                "instead of\n"
+                "   wright-exec-helper < commands.txt" << std::endl;
+            std::exit(1);
+        }
+        return as_stdin;
+    }
+
+
 }
 
 
@@ -144,20 +161,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     }
 
     /// This process now needs to read from stdin and queue the jobs
-    boost::asio::posix::stream_descriptor as_stdin(ctrlios);
-    {
-        boost::system::error_code error;
-        as_stdin.assign(dup(STDIN_FILENO), error);
-        if ( error ) {
-            std::cerr << "Cannot assign stdin to the reactor pool. This "
-                "probably means you're trying to redirect a file rather "
-                "than pipe the commands\n\nI.e. try this:\n"
-                "   cat commands.txt | wright-exec-helper\n"
-                "instead of\n"
-                "   wright-exec-helper < commands.txt" << std::endl;
-            std::exit(1);
-        }
-    }
+    boost::asio::posix::stream_descriptor as_stdin{connect_stdin(ctrlios)};
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
         boost::asio::streambuf buffer;
         while ( as_stdin.is_open() ) {
