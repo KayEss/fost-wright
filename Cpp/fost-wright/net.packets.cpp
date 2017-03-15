@@ -20,10 +20,12 @@ namespace {
     fostlib::performance p_in_version(wright::c_exec_helper, "network", "in", "version");
 }
 rask::out_packet wright::out::version(capacity &cap) {
+    const std::size_t total_capacity = cap.size() +
+        c_overspill_cap_per_worker.value() * cap.children();
     ++p_out_version;
     rask::out_packet packet{0x80};
     packet << g_proto.max_version();
-    packet << cap.size();
+    packet << total_capacity;
     return packet;
 }
 void wright::in::version(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {

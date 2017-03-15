@@ -54,4 +54,6 @@ const fostlib::setting<uint16_t> wright::c_port(
     __FILE__, "wright-exec-helper", "Server port", 7788, true);
 const fostlib::setting<fostlib::nullable<fostlib::string>> wright::c_connect(
     __FILE__, "wright-exec-helper", "Connect to", fostlib::null, true);
+const fostlib::setting<std::size_t> wright::c_overspill_cap_per_worker(
+    __FILE__, "wright-exec-helper", "Target overspill capacity per worker", 1, true);
 

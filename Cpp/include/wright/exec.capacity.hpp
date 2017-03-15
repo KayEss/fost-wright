@@ -43,6 +43,10 @@ namespace wright {
         auto size() const {
             return limit.limit();
         }
+        /// Return the number of children
+        auto children() const {
+            return pool.children.size();
+        }
 
         /// Register a network connection with its capacity
         void additional(std::shared_ptr<connection>, uint64_t);
