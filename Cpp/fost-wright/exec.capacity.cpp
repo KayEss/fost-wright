@@ -14,6 +14,15 @@
 #include <fost/log>
 
 
+namespace {
+
+
+    fostlib::performance p_accepted(wright::c_exec_helper, "jobs", "accepted");
+
+
+}
+
+
 wright::capacity::capacity(boost::asio::io_service &ios, child_pool &p)
 : limit(ios, p.children.size() * wright::buffer_size), pool(p), overspill(ios) {
 }
@@ -25,7 +34,12 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
         if ( not child.commands.full() ) {
             child.write(limit.get_io_service(), job, yield);
             child.commands.push_back(wright::job{job, std::move(task)});
+            ++p_accepted;
 //             ++(child.counters->accepted);
+            fostlib::log::debug(child.counters->reference)
+                ("", "Given job to worker")
+                ("pid", child.pid)
+                ("job", job.c_str());
             return;
         }
     }

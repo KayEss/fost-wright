@@ -64,6 +64,14 @@ void wright::netvisor(const char *command) {
         ("host", c_connect.value())
         ("port", c_port.value());
 
+    /// Fetch the jobs from the overspill and give them to workers
+    boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
+        while ( not signalled ) {
+            auto job = workers.overspill.consume(yield);
+            workers.next_job(std::move(job), yield);
+        }
+    }));
+
     /// Wait for the connetion to end...
     cnx->wait_for_close();
 

@@ -33,7 +33,6 @@ using namespace std::literals::chrono_literals;
 namespace {
 
 
-    fostlib::performance p_accepted(wright::c_exec_helper, "jobs", "accepted");
     fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
 
 
@@ -183,7 +182,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     }
                 }
                 workers.next_job(std::move(line), yield);
-                ++p_accepted;
             }
         }
         in_closed = true;
