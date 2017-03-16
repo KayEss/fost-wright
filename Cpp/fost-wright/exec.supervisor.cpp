@@ -65,7 +65,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     std::promise<void> blocker;
     /// Flag to tell us if the input stream has completed (closed)
     /// yet and if the blocker has been signalled
-    bool in_closed{false}, signalled{false};
+    bool signalled{false};
 
     /// Stop on exception, one thread. We want one thread here so
     /// we don't have to worry about thread synchronisation when
@@ -77,6 +77,11 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// exception and uses more threads.
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
+
+    /// Process the other end of the signal handler pipe
+    pool.sigchild_handling(auxios);
+    /// Set up the child pool capacity
+    capacity workers{ctrlios, pool};
 
     /// All the children need a presence in the reactor pool for
     /// their process requirement
@@ -105,15 +110,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                             ("child", cp->pid)
                             ("result", ret.c_str());
                         out << ret << std::endl;
-                        if ( in_closed && not signalled ) {
-                            const auto working = std::count_if(pool.children.begin(), pool.children.end(),
-                                    [](const auto &c) { return not c.commands.empty(); });
-                            logger("still-working", working);
-                            if ( working == 0 ) {
-                                signalled = true;
-                                blocker.set_value();
-                            }
-                        }
                     } else if ( error ) {
                         fostlib::log::warning(c_exec_helper)
                             ("", "Read error from child stdout")
@@ -138,7 +134,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     }
                 }
                 fostlib::log::info(c_exec_helper)
-                    ("", "Child done")
+                    ("", "Child done because it's pipe closed")
                     ("pid", cp->pid);
             }, exit_on_error));
         /// We also need to watch for a resend alert from the child process
@@ -150,10 +146,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
             cp->drain_stderr(auxios, yield);
         }));
     }
-    /// Process the other end of the signal handler pipe
-    pool.sigchild_handling(auxios);
-    /// Set up the child pool capacity
-    capacity workers{ctrlios, pool};
     /// If the port setting is turned on then we will start the server
     if ( c_port.value() ) {
         start_server(auxios, ctrlios, c_port.value(), workers);
@@ -171,8 +163,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                     ("", "Input error. Presumed end of work")
                     ("error", error)
                     ("bytes", bytes);
-                in_closed = true;
-                return;
+                break;
             } else if ( bytes ) {
                 std::string line;
                 for ( ; bytes; --bytes ) {
@@ -184,7 +175,9 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 workers.next_job(std::move(line), yield);
             }
         }
-        in_closed = true;
+        workers.input_complete = true;
+        workers.wait_until_all_done(yield);
+        blocker.set_value();
     }, exit_on_error));
 
     /// This needs to block here until all processing is done

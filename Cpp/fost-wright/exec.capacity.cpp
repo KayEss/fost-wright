@@ -67,3 +67,20 @@ void wright::capacity::additional(std::shared_ptr<connection> cnx, uint64_t cap)
     }
 }
 
+
+bool wright::capacity::all_done() const {
+    if ( input_complete.load() ) {
+        const auto outstanding = limit.outstanding();
+        fostlib::log::info(c_exec_helper)
+            ("", "Checking outstanding work")
+            ("remaining", outstanding);
+        return not outstanding;
+    }
+    return false;
+}
+
+
+void wright::capacity::wait_until_all_done(boost::asio::yield_context &yield) {
+    limit.wait_for_all_outstanding(yield);
+}
+
