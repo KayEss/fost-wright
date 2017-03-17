@@ -81,8 +81,9 @@ rask::out_packet wright::out::completed(const std::string &job) {
     packet << fostlib::utf::u8_view(job);
     return packet;
 }
-void wright::in::completed(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode) {
+void wright::in::completed(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {
     ++p_in_completed;
+    cnx->capacity.job_done(cnx, rask::read<fostlib::utf8_string>(packet).underlying());
 }
 
 

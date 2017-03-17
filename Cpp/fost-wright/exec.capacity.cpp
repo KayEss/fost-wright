@@ -55,6 +55,19 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
     fostlib::log::flush();
     std::exit(6);
 }
+void wright::capacity::job_done(std::shared_ptr<connection> cnx, std::string job) {
+    auto &rmt = connections[cnx];
+    auto pos = rmt.work.find(job);
+    if ( pos == rmt.work.end() ) {
+        fostlib::log::error(c_exec_helper)
+            ("", "Got a job that isn't outstanding for this network connection")
+            ("connection", "id", cnx->id)
+            ("job", job.c_str());
+    } else {
+        rmt.work.erase(pos);
+        std::cout << job << std::endl;
+    }
+}
 
 
 void wright::capacity::additional(std::shared_ptr<connection> cnx, uint64_t cap) {
