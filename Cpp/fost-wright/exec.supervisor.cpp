@@ -33,9 +33,6 @@ using namespace std::literals::chrono_literals;
 namespace {
 
 
-    fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
-
-
     boost::asio::posix::stream_descriptor connect_stdin(boost::asio::io_service &ctrlios) {
         boost::asio::posix::stream_descriptor as_stdin{ctrlios};
         boost::system::error_code error;
@@ -86,57 +83,14 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// All the children need a presence in the reactor pool for
     /// their process requirement
     for ( auto &child : pool.children ) {
+        auto *cp = &child;
         /// Each child will wait on the command, then write it
         /// the pipe for the process to execute and wait on the result
-        auto *cp = &child;
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-                /// Wait for a job to be queued in their process ID
-                boost::asio::streambuf buffer;
-                while ( cp->stdout.parent(ctrlios).is_open() ) {
-                    boost::system::error_code error;
-                    auto ret = cp->read(ctrlios, buffer, yield[error]);
-                    if ( not error && not ret.empty() &&
-                            cp->commands.size() &&
-                            ret == cp->commands.front().command )
-                    {
-                        ++p_completed;
-//                         ++(cp->counters->completed);
-                        pool.job_times.record(cp->commands.front().time);
-                        cp->commands.pop_front();
-                        if ( cp->commands.size() ) cp->commands.front().time.reset();
-                        auto logger = fostlib::log::debug(c_exec_helper);
-                        logger
-                            ("", "Got result from child")
-                            ("child", cp->pid)
-                            ("result", ret.c_str());
-                        out << ret << std::endl;
-                    } else if ( error ) {
-                        fostlib::log::warning(c_exec_helper)
-                            ("", "Read error from child stdout")
-                            ("child", cp->pid)
-                            ("error", error);
-                    } else if ( not ret.empty() ) {
-                        if ( cp->commands.empty() ) {
-                            fostlib::log::debug(c_exec_helper)
-                                ("", "Ignored line from child")
-                                ("input", "string", ret.c_str())
-                                ("input", "size", ret.size());
-                        } else {
-                            auto &command = cp->commands.front().command;
-                            fostlib::log::debug(c_exec_helper)
-                                ("", "Ignored line from child")
-                                ("input", "string", ret.c_str())
-                                ("input", "size", ret.size())
-                                ("expected", "string", command.c_str())
-                                ("expected", "size", command.size())
-                                ("match", ret == command);
-                        }
-                    }
-                }
-                fostlib::log::info(c_exec_helper)
-                    ("", "Child done because it's pipe closed")
-                    ("pid", cp->pid);
-            }, exit_on_error));
+            cp->handle_stdout(ctrlios, yield, workers.pool, [&](const std::string &job) {
+                out << job << std::endl;
+            });
+        }, exit_on_error));
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
             cp->handle_child_requests(ctrlios, signalled, yield);

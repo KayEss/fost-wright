@@ -8,6 +8,7 @@
 
 #include <wright/configuration.hpp>
 #include <wright/exception.hpp>
+#include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
 
 #include <fost/log>
@@ -27,6 +28,7 @@ using namespace std::literals::chrono_literals;
 namespace {
 
 
+    fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
     fostlib::performance p_crashes(wright::c_exec_helper, "child", "crashed");
     fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
 
@@ -282,6 +284,60 @@ void wright::childproc::drain_stderr(
             line.clear();
         }
     }
+}
+
+
+void wright::childproc::handle_stdout(
+    boost::asio::io_service &ctrlios,
+    boost::asio::yield_context &yield,
+    child_pool &pool,
+    std::function<void(const std::string &)> job_done
+) {
+    boost::asio::streambuf buffer;
+    while ( stdout.parent(ctrlios).is_open() ) {
+        boost::system::error_code error;
+        auto ret = read(ctrlios, buffer, yield[error]);
+        if ( not error && not ret.empty() &&
+                commands.size() &&
+                ret == commands.front().command )
+        {
+            ++p_completed;
+//             ++(counters->completed);
+            pool.job_times.record(commands.front().time);
+            commands.pop_front();
+            if ( commands.size() ) commands.front().time.reset();
+            auto logger = fostlib::log::debug(c_exec_helper);
+            logger
+                ("", "Got result from child")
+                ("child", pid)
+                ("result", ret.c_str());
+            job_done(ret);
+        } else if ( error ) {
+            fostlib::log::warning(c_exec_helper)
+                ("", "Read error from child stdout")
+                ("child", pid)
+                ("error", error);
+        } else if ( not ret.empty() ) {
+            if ( commands.empty() ) {
+                fostlib::log::debug(c_exec_helper)
+                    ("", "Ignored line from child")
+                    ("input", "string", ret.c_str())
+                    ("input", "size", ret.size());
+            } else {
+                auto &command = commands.front().command;
+                fostlib::log::debug(c_exec_helper)
+                    ("", "Ignored line from child")
+                    ("input", "string", ret.c_str())
+                    ("input", "size", ret.size())
+                    ("expected", "string", command.c_str())
+                    ("expected", "size", command.size())
+                    ("match", ret == command);
+            }
+        }
+    }
+    fostlib::log::info(c_exec_helper)
+        ("", "Child done because it's pipe closed")
+        ("pid", pid);
 }
 
 

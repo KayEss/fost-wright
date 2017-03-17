@@ -23,7 +23,6 @@ namespace wright {
     /// Used to manage the capacity of all workers
     class capacity {
         f5::eventfd::limiter limit;
-        child_pool &pool;
         using weak_connection = std::weak_ptr<connection>;
         struct remote {
             uint64_t cap;
@@ -31,6 +30,8 @@ namespace wright {
         };
         std::map<weak_connection, remote, std::owner_less<weak_connection>> connections;
     public:
+        /// The child process pool
+        child_pool &pool;
         /// Overspill for the capacity
         f5::boost_asio::channel<std::string> overspill;
         /// Atomic bool that is set to true when the input is complete
