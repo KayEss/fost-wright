@@ -93,7 +93,7 @@ namespace wright {
             boost::asio::yield_context yield);
 
         /// Handle requests from the child
-        void handle_child_requests(boost::asio::io_service &ctlios, bool &signalled,
+        void handle_child_requests(boost::asio::io_service &ctrlios, capacity &,
             boost::asio::yield_context &yield);
         /// Drain stderr for the child, transforming into log messages
         void drain_stderr(boost::asio::io_service &auxios, boost::asio::yield_context &yield);

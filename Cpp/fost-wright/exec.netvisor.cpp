@@ -22,9 +22,6 @@ void wright::netvisor(const char *command) {
     /// Set up the child worker pool
     child_pool pool(c_children.value(), command);
 
-    /// Set to true when the blocker has been signalled
-    bool signalled{false};
-
     /// Stop on exception, one thread. We want one thread here so
     /// we don't have to worry about thread synchronisation when
     /// running code in the reactor
@@ -36,24 +33,24 @@ void wright::netvisor(const char *command) {
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
 
+    /// Start the child signal processing
+    pool.sigchild_handling(auxios);
+    /// Track the worker capacity
+    capacity workers{ctrlios, pool};
+
     /// Go through each child and service them properly
     for ( auto &child : pool.children ) {
         /// Use a pointer which we can easily capture in lambdas
         auto *cp = &child;
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-            cp->handle_child_requests(ctrlios, signalled, yield);
+            cp->handle_child_requests(ctrlios, workers, yield);
         }, exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
             cp->drain_stderr(auxios, yield);
         }));
     }
-
-    /// Start the child signal processing
-    pool.sigchild_handling(auxios);
-    /// Track the worker capacity
-    capacity workers{ctrlios, pool};
 
     /// Set up the network connection to the server
     auto cnx = rask::tcp_connect<connection>(
@@ -66,7 +63,7 @@ void wright::netvisor(const char *command) {
 
     /// Fetch the jobs from the overspill and give them to workers
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
-        while ( not signalled ) {
+        while ( not workers.input_complete.load() ) {
             auto job = workers.overspill.consume(yield);
             workers.next_job(std::move(job), yield);
         }

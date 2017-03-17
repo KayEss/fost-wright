@@ -60,9 +60,6 @@ void wright::exec_helper(std::ostream &out, const char *command) {
 
     /// Set up a promise that we're going to wait to finish on
     std::promise<void> blocker;
-    /// Flag to tell us if the input stream has completed (closed)
-    /// yet and if the blocker has been signalled
-    bool signalled{false};
 
     /// Stop on exception, one thread. We want one thread here so
     /// we don't have to worry about thread synchronisation when
@@ -93,7 +90,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         }, exit_on_error));
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-            cp->handle_child_requests(ctrlios, signalled, yield);
+            cp->handle_child_requests(ctrlios, workers, yield);
         }, exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {

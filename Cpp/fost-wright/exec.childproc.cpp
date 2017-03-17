@@ -197,7 +197,7 @@ std::string wright::childproc::read(
 
 
 void wright::childproc::handle_child_requests(
-    boost::asio::io_service &ctrlios, bool &signalled, boost::asio::yield_context &yield
+    boost::asio::io_service &ctrlios, capacity &cap, boost::asio::yield_context &yield
 ) {
     boost::asio::streambuf buffer;
     boost::system::error_code error;
@@ -213,7 +213,7 @@ void wright::childproc::handle_child_requests(
                 break;
             case 'r':
                 ++p_crashes;
-                if ( signalled ) {
+                if ( cap.input_complete.load() && commands.empty() ) {
                     /// The work is done, but the child seems
                     /// to be looping in an error. Kill it
                     ::kill(pid, SIGTERM);
