@@ -19,11 +19,12 @@ const wright::protocol_definition wright::g_proto(
     },
     {
         { // Version 0
-            {0x80, in::version}
+            {packet::version, in::version}
         },
         { // Version 1
-            {0x90, in::execute},
-            {0xe0, in::log_message}
+            {packet::execute, in::execute},
+            {packet::completed, in::completed},
+            {packet::log_message, in::log_message}
         }
     });
 

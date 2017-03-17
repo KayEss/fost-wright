@@ -11,6 +11,7 @@
 #include <wright/exec.hpp>
 #include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
+#include <wright/net.packets.hpp>
 #include <wright/net.server.hpp>
 
 #include <f5/threading/boost-asio.hpp>
@@ -38,10 +39,25 @@ void wright::netvisor(const char *command) {
     /// Track the worker capacity
     capacity workers{ctrlios, pool};
 
+    /// Set up the network connection to the server
+    auto cnx = rask::tcp_connect<connection>(
+        fostlib::host{c_connect.value().value(), c_port.value()},
+        ctrlios, connection::client_side, workers);
+    fostlib::log::info(wright::c_exec_helper)
+        ("", "Connection established")
+        ("host", c_connect.value())
+        ("port", c_port.value());
+
     /// Go through each child and service them properly
     for ( auto &child : pool.children ) {
         /// Use a pointer which we can easily capture in lambdas
         auto *cp = &child;
+        /// Read completed work on child stdout pipe
+        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
+            cp->handle_stdout(ctrlios, yield, workers.pool, [&](const std::string &job) {
+                cnx->queue.produce(out::completed(job));
+            });
+        }));
         /// We also need to watch for a resend alert from the child process
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
             cp->handle_child_requests(ctrlios, workers, yield);
@@ -51,15 +67,6 @@ void wright::netvisor(const char *command) {
             cp->drain_stderr(auxios, yield);
         }));
     }
-
-    /// Set up the network connection to the server
-    auto cnx = rask::tcp_connect<connection>(
-        fostlib::host{c_connect.value().value(), c_port.value()},
-        ctrlios, connection::client_side, workers);
-    fostlib::log::info(wright::c_exec_helper)
-        ("", "Connection established")
-        ("host", c_connect.value())
-        ("port", c_port.value());
 
     /// Fetch the jobs from the overspill and give them to workers
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {

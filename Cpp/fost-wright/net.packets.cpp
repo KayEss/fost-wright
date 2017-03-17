@@ -23,7 +23,7 @@ rask::out_packet wright::out::version(capacity &cap) {
     const std::size_t total_capacity = cap.size() +
         c_overspill_cap_per_worker.value() * cap.children();
     ++p_out_version;
-    rask::out_packet packet{0x80};
+    rask::out_packet packet{packet::version};
     packet << g_proto.max_version();
     packet << total_capacity;
     return packet;
@@ -63,13 +63,26 @@ namespace {
 }
 rask::out_packet wright::out::execute(std::string job) {
     ++p_out_execute;
-    rask::out_packet packet(0x90);
+    rask::out_packet packet(packet::execute);
     packet << fostlib::utf::u8_view(job);
     return packet;
 }
 void wright::in::execute(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {
     ++p_in_execute;
     cnx->capacity.overspill.produce(rask::read<fostlib::utf8_string>(packet).underlying());
+}
+namespace {
+    fostlib::performance p_out_completed(wright::c_exec_helper, "network", "out", "completed");
+    fostlib::performance p_in_completed(wright::c_exec_helper, "network", "in", "completed");
+}
+rask::out_packet wright::out::completed(const std::string &job) {
+    ++p_out_completed;
+    rask::out_packet packet(packet::completed);
+    packet << fostlib::utf::u8_view(job);
+    return packet;
+}
+void wright::in::completed(std::shared_ptr<connection> cnx, rask::tcp_decoder &decode) {
+    ++p_in_completed;
 }
 
 
@@ -81,7 +94,7 @@ rask::out_packet wright::out::log_message(const fostlib::log::message &m) {
     ++p_out_log_message;
     auto msg = fostlib::json::unparse(
         fostlib::coerce<fostlib::json>(m), false);
-    rask::out_packet packet{0xe0};
+    rask::out_packet packet{packet::log_message};
     packet << fostlib::coerce<fostlib::utf8_string>(msg);
     return packet;
 }
