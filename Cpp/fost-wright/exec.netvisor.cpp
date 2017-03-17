@@ -55,6 +55,7 @@ void wright::netvisor(const char *command) {
         /// Read completed work on child stdout pipe
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
             cp->handle_stdout(ctrlios, yield, workers.pool, [&](const std::string &job) {
+                workers.job_done(job);
                 cnx->queue.produce(out::completed(job));
             });
         }));

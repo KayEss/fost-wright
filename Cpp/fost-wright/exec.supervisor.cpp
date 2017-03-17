@@ -86,6 +86,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
             cp->handle_stdout(ctrlios, yield, workers.pool, [&](const std::string &job) {
                 workers.job_done(job);
+                std::cout << job << std::endl;
             });
         }, exit_on_error));
         /// We also need to watch for a resend alert from the child process

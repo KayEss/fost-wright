@@ -58,7 +58,6 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
 }
 void wright::capacity::job_done(const std::string &job) {
     ++p_completed;
-    std::cout << job << std::endl;
 }
 void wright::capacity::job_done(std::shared_ptr<connection> cnx, const std::string &job) {
     auto &rmt = connections[cnx];
@@ -71,6 +70,7 @@ void wright::capacity::job_done(std::shared_ptr<connection> cnx, const std::stri
     } else {
         rmt.work.erase(pos);
         job_done(job);
+        std::cout << job << std::endl;
     }
 }
 
