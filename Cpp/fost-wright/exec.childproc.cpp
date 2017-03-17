@@ -28,7 +28,6 @@ using namespace std::literals::chrono_literals;
 namespace {
 
 
-    fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
     fostlib::performance p_crashes(wright::c_exec_helper, "child", "crashed");
     fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
 
@@ -301,7 +300,6 @@ void wright::childproc::handle_stdout(
                 commands.size() &&
                 ret == commands.front().command )
         {
-            ++p_completed;
 //             ++(counters->completed);
             pool.job_times.record(commands.front().time);
             commands.pop_front();

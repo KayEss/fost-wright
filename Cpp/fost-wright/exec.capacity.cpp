@@ -18,6 +18,7 @@ namespace {
 
 
     fostlib::performance p_accepted(wright::c_exec_helper, "jobs", "accepted");
+    fostlib::performance p_completed(wright::c_exec_helper, "jobs", "completed");
 
 
 }
@@ -55,7 +56,11 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
     fostlib::log::flush();
     std::exit(6);
 }
-void wright::capacity::job_done(std::shared_ptr<connection> cnx, std::string job) {
+void wright::capacity::job_done(const std::string &job) {
+    ++p_completed;
+    std::cout << job << std::endl;
+}
+void wright::capacity::job_done(std::shared_ptr<connection> cnx, const std::string &job) {
     auto &rmt = connections[cnx];
     auto pos = rmt.work.find(job);
     if ( pos == rmt.work.end() ) {
@@ -65,7 +70,7 @@ void wright::capacity::job_done(std::shared_ptr<connection> cnx, std::string job
             ("job", job.c_str());
     } else {
         rmt.work.erase(pos);
-        std::cout << job << std::endl;
+        job_done(job);
     }
 }
 

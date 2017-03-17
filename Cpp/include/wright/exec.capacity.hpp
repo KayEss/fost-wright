@@ -42,8 +42,10 @@ namespace wright {
 
         /// Give this task to a worker when one becomes available
         void next_job(std::string job, boost::asio::yield_context &yield);
+        /// Mark (and count) a job as done
+        void job_done(const std::string &job);
         /// Mark a network job as having been done
-        void job_done(std::shared_ptr<connection> cnx, std::string job);
+        void job_done(std::shared_ptr<connection> cnx, const std::string &job);
 
         /// Return the limit on the capacity
         auto size() const {
