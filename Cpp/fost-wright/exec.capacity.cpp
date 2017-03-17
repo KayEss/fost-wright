@@ -30,11 +30,11 @@ wright::capacity::capacity(boost::asio::io_service &ios, child_pool &p)
 
 void wright::capacity::next_job(std::string job, boost::asio::yield_context &yield) {
     auto task = limit.next_job(yield); // Must do this first so it can block
+    ++p_accepted;
     for ( auto &child : pool.children ) {
         if ( not child.commands.full() ) {
             child.write(limit.get_io_service(), job, yield);
             child.commands.push_back(wright::job{job, std::move(task)});
-            ++p_accepted;
 //             ++(child.counters->accepted);
             fostlib::log::debug(child.counters->reference)
                 ("", "Given job to worker")
@@ -45,7 +45,7 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
     }
     for ( auto &cxv : connections ) {
         auto cnx = cxv.first.lock();
-        if ( cnx && cxv.second.cap ) {
+        if ( cnx && cxv.second.cap > cxv.second.work.size() ) {
             cxv.second.work[job] = std::move(task);
             cnx->queue.produce(out::execute(std::move(job)));
             return;
