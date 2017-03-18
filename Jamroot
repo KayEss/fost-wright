@@ -3,16 +3,19 @@ include $(TOP)/../boost-version.jam ;
 include ../fost-base/fost.jam ;
 
 use-project fost-base : ../fost-base/ ;
-fost-project fost-wring :
+use-project fost-internet : ../fost-internet/ ;
+fost-project fost-wright :
     ;
 
 alias fost :
         ../fost-base//fost
+        ../fost-internet//fost
         Cpp/wright-exec-helper
     ;
 
 alias tests :
         ../fost-base//tests
+        ../fost-internet//tests
     ;
 explicit tests ;
 
