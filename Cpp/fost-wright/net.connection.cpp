@@ -74,9 +74,13 @@ void wright::connection::process_inbound(boost::asio::yield_context &yield) {
     {
         g_proto.dispatch(version(), control, self, decode);
     });
-    /// Network connection has closed...
-    fostlib::log::info(c_exec_helper, "Network connection closed -- releasing connection block");
-    blocker.set_value();
+    if ( peer == client_side ) {
+        /// Network connection has closed...
+        fostlib::log::info(c_exec_helper, "Network connection closed -- releasing connection block");
+        blocker.set_value();
+    } else {
+        fostlib::log::info(c_exec_helper, "Network connection closed -- re-distributing outstanding work");
+    }
 }
 
 
