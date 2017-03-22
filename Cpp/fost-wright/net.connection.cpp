@@ -69,21 +69,32 @@ std::size_t wright::connection::broadcast(std::function<rask::out_packet(void)> 
 
 
 void wright::connection::process_inbound(boost::asio::yield_context &yield) {
-    auto self = shared_from_this();
-    receive_loop(*this, yield,
-        [&](auto decode, uint8_t control, std::size_t bytes)
-    {
-        g_proto.dispatch(version(), control, self, decode);
-    });
-    if ( peer == client_side ) {
-        /// Network connection has closed...
-        fostlib::log::info(c_exec_helper, "Network connection closed -- releasing connection block");
-        blocker.set_value();
-    } else {
-        fostlib::log::warning(c_exec_helper,
-            "Network connection closed -- re-distributing outstanding work");
-        capacity.overspill_work(shared_from_this());
+    auto redistribute = [&](bool from_catch) {
+        if ( peer == client_side ) {
+            /// Network connection has closed...
+            fostlib::log::info(c_exec_helper)
+                ("", "Network connection closed -- releasing connection block")
+                ("from-catch", from_catch);
+            blocker.set_value();
+        } else {
+            fostlib::log::warning(c_exec_helper)
+                ("", "Network connection closed -- re-distributing outstanding work")
+                ("from-catch", from_catch);
+            capacity.overspill_work(shared_from_this());
+        }
+    };
+    try {
+        auto self = shared_from_this();
+        receive_loop(*this, yield,
+            [&](auto decode, uint8_t control, std::size_t bytes)
+        {
+            g_proto.dispatch(version(), control, self, decode);
+        });
+    } catch ( ... ) {
+        redistribute(true);
+        throw;
     }
+    redistribute(false);
 }
 
 
