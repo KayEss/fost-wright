@@ -49,10 +49,11 @@ void wright::fork_worker() {
     while ( true ) {
         int pid = ::fork();
         if ( pid < 0 ) {
-            fostlib::log::error(c_exec_helper)
+            fostlib::log::critical(c_exec_helper)
                 ("", "Fork failed")
                 ("parent", ::getpid());
-            exit(5);
+            fostlib::log::flush();
+            std::exit(5);
         } else if ( pid == 0 ) {
             ::execvp(argv.front(), const_cast<char *const*>(argv.data()));
             std::cerr << "Child process failed to start:";
@@ -156,7 +157,15 @@ void wright::childproc::write(
 ) {
     std::array<boost::asio::streambuf::const_buffers_type, 2>
         buffer{{{command.data(), command.size()}, newline.buffer.data()}};
-    boost::asio::async_write(stdin.parent(ios), buffer, yield);
+    boost::system::error_code error;
+    boost::asio::async_write(stdin.parent(ios), buffer, yield[error]);
+    if ( error ) {
+        fostlib::log::critical(counters->reference)
+            ("", "Error writing to pipe for child")
+            ("error", error);
+        fostlib::log::flush();
+        std::exit(7);
+    }
 }
 
 
@@ -202,8 +211,8 @@ void wright::childproc::handle_child_requests(
     boost::system::error_code error;
     while ( resend.parent(ctrlios).is_open() ) {
         auto bytes = boost::asio::async_read(resend.parent(ctrlios), buffer,
-            boost::asio::transfer_exactly(1), yield);
-        if ( bytes ) {
+            boost::asio::transfer_exactly(1), yield[error]);
+        if ( bytes && not error ) {
             switch ( char byte = buffer.sbumpc() ) {
             default:
                 fostlib::log::warning(counters->reference)
@@ -251,6 +260,13 @@ void wright::childproc::handle_child_requests(
                     break;
                 }
             }
+        } else {
+            fostlib::log::critical(c_exec_helper)
+                ("", "Error reading from child pipe")
+                ("error", error)
+                ("bytes", bytes);
+            fostlib::log::flush();
+            std::exit(8);
         }
     }
 }
@@ -378,10 +394,11 @@ namespace {
     ) {
         return [&](auto yield) {
             boost::asio::streambuf buffer;
+            boost::system::error_code error;
             while ( sigchild->parent(auxios).is_open() ) {
                 auto bytes = boost::asio::async_read(sigchild->parent(auxios), buffer,
-                    boost::asio::transfer_exactly(1), yield);
-                if ( bytes ) {
+                    boost::asio::transfer_exactly(1), yield[error]);
+                if ( bytes && not error ) {
                     switch ( char byte = buffer.sbumpc() ) {
                     default:
                         std::cerr << "Got signal byte " << int(byte) << std::endl;
@@ -398,6 +415,13 @@ namespace {
                             }
                         }
                     }
+                } else {
+                    fostlib::log::critical(wright::c_exec_helper)
+                        ("", "Error reading bytes from SIGCHLD handler pipe")
+                        ("error", error)
+                        ("bytes", bytes);
+                    fostlib::log::flush();
+                    std::exit(9);
                 }
             }
         };
