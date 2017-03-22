@@ -7,6 +7,7 @@
 
 
 #include <wright/configuration.hpp>
+#include <wright/exec.capacity.hpp>
 #include <wright/net.packets.hpp>
 #include <wright/net.server.hpp>
 
@@ -79,7 +80,9 @@ void wright::connection::process_inbound(boost::asio::yield_context &yield) {
         fostlib::log::info(c_exec_helper, "Network connection closed -- releasing connection block");
         blocker.set_value();
     } else {
-        fostlib::log::info(c_exec_helper, "Network connection closed -- re-distributing outstanding work");
+        fostlib::log::warning(c_exec_helper,
+            "Network connection closed -- re-distributing outstanding work");
+        capacity.overspill_work(shared_from_this());
     }
 }
 

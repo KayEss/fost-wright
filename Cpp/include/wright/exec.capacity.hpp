@@ -46,6 +46,9 @@ namespace wright {
         void job_done(const std::string &job);
         /// Mark a network job as having been done
         void job_done(std::shared_ptr<connection> cnx, const std::string &job);
+        /// Move all of the outstanding work for the connection to the
+        /// overspill and the remove the connection as it is now dead.
+        void overspill_work(std::shared_ptr<connection> cnx);
 
         /// Return the limit on the capacity
         auto size() const {

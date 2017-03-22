@@ -73,6 +73,19 @@ void wright::capacity::job_done(std::shared_ptr<connection> cnx, const std::stri
         std::cout << job << std::endl;
     }
 }
+void wright::capacity::overspill_work(std::shared_ptr<connection> cnx) {
+    auto logger{fostlib::log::debug(c_exec_helper)};
+    logger("", "Redistributing work");
+    std::size_t redist{};
+    auto prmt = connections.find(cnx);
+    for ( auto &w : prmt->second.work ) {
+        overspill.produce(std::string(w.first));
+        ++redist;
+    }
+    logger("jobs", redist);
+    logger("limit", limit.decrease_limit(prmt->second.cap));
+    connections.erase(prmt);
+}
 
 
 void wright::capacity::additional(std::shared_ptr<connection> cnx, uint64_t cap) {

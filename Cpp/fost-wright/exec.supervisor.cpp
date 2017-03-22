@@ -106,8 +106,18 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// This process now needs to read from stdin and queue the jobs
     boost::asio::posix::stream_descriptor as_stdin{connect_stdin(ctrlios)};
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
+        auto clear_overspill = [&]() {
+            for ( auto job{workers.overspill.consume()}; job; job = workers.overspill.consume() ) {
+                fostlib::log::debug(c_exec_helper)
+                    ("", "Fetched overspill job")
+                    ("job", job.value().c_str());
+                workers.next_job(std::move(job.value()), yield);
+            }
+        };
         boost::asio::streambuf buffer;
         while ( as_stdin.is_open() ) {
+            clear_overspill();
+            /// Then consume stdin
             boost::system::error_code error;
             auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
             if ( error ) {
@@ -127,6 +137,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                 workers.next_job(std::move(line), yield);
             }
         }
+        clear_overspill();
         workers.input_complete = true;
         workers.wait_until_all_done(yield);
         blocker.set_value();
