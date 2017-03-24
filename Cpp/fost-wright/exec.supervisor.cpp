@@ -24,7 +24,6 @@
 #include <future>
 
 #include <signal.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 
@@ -152,10 +151,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     blocker_ready.wait();
 
     /// Terminating. Wait for children
-    for ( auto &child : pool.children ) {
-        child.stdin.close();
-        waitpid(child.pid, nullptr, 0);
-    }
+    workers.close();
 
     std::cerr << fostlib::performance::current() << std::endl;
     std::cerr << fostlib::coerce<fostlib::json>(pool.job_times) << std::endl;

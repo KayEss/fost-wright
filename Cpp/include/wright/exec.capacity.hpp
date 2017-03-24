@@ -74,6 +74,9 @@ namespace wright {
 
         /// Wait until all of the outstanding work is done
         void wait_until_all_done(boost::asio::yield_context &yield);
+
+        /// Send a close to each child and wait for them to exit
+        void close();
     };
 
 

@@ -13,6 +13,8 @@
 
 #include <fost/log>
 
+#include <sys/wait.h>
+
 
 namespace {
 
@@ -113,5 +115,14 @@ bool wright::capacity::all_done() const {
 
 void wright::capacity::wait_until_all_done(boost::asio::yield_context &yield) {
     limit.wait_for_all_outstanding(yield);
+}
+
+
+void wright::capacity::close() {
+    connection::close_all();
+    for ( auto &child : pool.children ) {
+        child.stdin.close();
+        waitpid(child.pid, nullptr, 0);
+    }
 }
 

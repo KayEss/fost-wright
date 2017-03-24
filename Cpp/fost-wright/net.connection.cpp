@@ -68,6 +68,20 @@ std::size_t wright::connection::broadcast(std::function<rask::out_packet(void)> 
 }
 
 
+std::size_t wright::connection::close_all() {
+    std::unique_lock<std::mutex> lock(g_mutex);
+    std::size_t closed{};
+    for ( auto &w : g_connections ) {
+        auto cnx(w.lock());
+        if ( cnx ) {
+            cnx->socket.close();
+            ++closed;
+        }
+    }
+    return closed;
+}
+
+
 void wright::connection::process_inbound(boost::asio::yield_context &yield) {
     auto redistribute = [&](bool from_catch) {
         if ( peer == client_side ) {

@@ -45,6 +45,9 @@ namespace wright {
         /// Broadcast a message to all connections
         static std::size_t broadcast(std::function<rask::out_packet(void)>);
 
+        /// Close all network connections
+        static std::size_t close_all();
+
     protected:
         /// Process inbound messages
         void process_inbound(boost::asio::yield_context &) override;
