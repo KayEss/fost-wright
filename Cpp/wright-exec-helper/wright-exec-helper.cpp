@@ -57,6 +57,8 @@ int main(int argc, char *argv[]) {
             fostlib::log::global_sink_configuration log_sinks(settings.c_logging.value());
             /// Run the task
             task(a...);
+            fostlib::log::info(wright::c_exec_helper, "Everything done. Terminating normally");
+            fostlib::log::flush();
         };
     };
 
@@ -79,7 +81,6 @@ int main(int argc, char *argv[]) {
     /// That last line though.
     /// * `[](){} ` An empty lambda in effect saying "don't re-throw the exception"
     /// * `() ` Immediately invoke the decorated function.
-    fostlib::log::flush();
 
     return 0;
 }
