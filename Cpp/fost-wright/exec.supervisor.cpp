@@ -11,6 +11,7 @@
 #include <wright/exec.hpp>
 #include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
+#include <wright/exec.watchdog.hpp>
 #include <wright/net.server.hpp>
 
 #include <f5/threading/boost-asio.hpp>
@@ -71,6 +72,9 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     /// exception and uses more threads.
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
+    /// Make sure that both reactors are working correctly
+    add_watchdog(ctrlios, auxios);
+    add_watchdog(auxios, ctrlios);
 
     /// Process the other end of the signal handler pipe
     pool.sigchild_handling(auxios);

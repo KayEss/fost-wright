@@ -11,6 +11,7 @@
 #include <wright/exec.hpp>
 #include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
+#include <wright/exec.watchdog.hpp>
 #include <wright/net.packets.hpp>
 #include <wright/net.server.hpp>
 
@@ -33,6 +34,9 @@ void wright::netvisor(const char *command) {
     /// exception and uses more threads.
     f5::boost_asio::reactor_pool auxilliary([]() { return true; }, 2u);
     auto &auxios = auxilliary.get_io_service();
+    /// Make sure that both reactors are working correctly
+    add_watchdog(ctrlios, auxios);
+    add_watchdog(auxios, ctrlios);
 
     /// Start the child signal processing
     pool.sigchild_handling(auxios);
