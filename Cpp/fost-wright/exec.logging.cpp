@@ -59,13 +59,19 @@ fostlib::json wright::child_logging() {
 namespace {
 
     struct netlog {
-        netlog(const fostlib::json &conf) {
+        const std::size_t level;
+        netlog(const fostlib::json &conf)
+        : level{not conf.isobject() ?
+            1000u : fostlib::coerce<fostlib::nullable<std::size_t>>(conf["level"]).value_or(1000u)}
+        {
         }
 
         bool operator () (const fostlib::log::message &m) {
-            wright::connection::broadcast([&m]() {
-                return wright::out::log_message(m);
-            });
+            if ( m.level() >= level ) {
+                wright::connection::broadcast([&m]() {
+                    return wright::out::log_message(m);
+                });
+            }
             return true;
         }
     };
