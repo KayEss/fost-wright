@@ -33,7 +33,7 @@ namespace {
 
     void beat(std::shared_ptr<dog> watcher) {
         watcher->killer.expires_from_now(boost::posix_time::seconds(2));
-        watcher->killer.async_wait([](boost::system::error_code error) {
+        watcher->killer.async_wait([watcher](boost::system::error_code error) {
             if ( not error ) {
                 fostlib::log::critical(wright::c_exec_helper, "Watchdog killer activated");
                 fostlib::log::flush();
