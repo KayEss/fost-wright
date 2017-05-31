@@ -205,8 +205,14 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                                     if ( next ) jsonstr += next;
                                 }
                             }
-                            fostlib::log::log(fostlib::log::message(
-                                cp->counters->reference, fostlib::json::parse(jsonstr)));
+                            auto parsed = fostlib::json::parse(jsonstr);
+                            try {
+                                fostlib::log::log(fostlib::log::message(
+                                    cp->counters->reference, parsed));
+                            } catch ( fostlib::exceptions::exception &e ) {
+                                throw fostlib::exceptions::not_implemented(__func__,
+                                    "Could not turn create a log message from JSON", parsed);
+                            }
                             break;
                         }
                     }
