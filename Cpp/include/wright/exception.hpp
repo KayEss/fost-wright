@@ -34,6 +34,9 @@ namespace wright {
                     return fn(a...);
                 } catch ( boost::coroutines::detail::forced_unwind & ) {
                     throw;
+                } catch ( fostlib::exceptions::exception &e ) {
+                    std::cerr << e << std::endl;
+                    return recov();
                 } catch ( std::exception &e ) {
                     std::cerr << e.what() << ": " << wright::c_child.value() << std::endl;
                     return recov();
