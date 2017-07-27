@@ -1,3 +1,6 @@
+2017-07-27  Kirit Saelensminde  <kirit@felspar.com>
+ Work is distributed between workers more evenly.
+
 2017-02-05  Kirit Saelensminde  <kirit@felspar.com>
  Capture proper timing data for job execution times.
 

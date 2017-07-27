@@ -18,6 +18,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 
+#include <algorithm>
 #include <future>
 
 #include <signal.h>
@@ -292,6 +293,7 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     boost::asio::spawn(ios, exception_decorator([&](auto yield) {
             f5::eventfd::limiter limit{ios, yield, children.size() * wright::buffer_size};
             boost::asio::streambuf buffer;
+            std::size_t child_index{};
             while ( as_stdin.is_open() ) {
                 boost::system::error_code error;
                 auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
@@ -311,15 +313,19 @@ void wright::exec_helper(std::ostream &out, const char *command) {
                         }
                     }
                     auto task = ++limit; // Must do this first so it can block
-                    for ( auto &child : children ) {
-                        if ( not child.commands.full() ) {
-                            child.write(ios, line, yield);
-                            child.commands.push_back(wright::job{line, std::move(task)});
-                            ++p_accepted;
-//                             ++(child.counters->accepted);
-                            break;
-                        }
-                    }
+                    do {
+                        /** Do a rotate left first so we won't try the
+                            same child two times in a row without trying
+                            the others first. This should spread the jobs
+                            out across.
+                        */
+                        ++child_index;
+                        child_index = child_index % children.size();
+                    } while ( children[child_index].commands.full() );
+                    auto &child{children[child_index]};
+                    child.write(ios, line, yield);
+                    child.commands.push_back(wright::job{line, std::move(task)});
+                    ++p_accepted;
                 }
             }
             in_closed = true;
