@@ -1,5 +1,5 @@
 /*
-    Copyright 2017, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -87,7 +87,7 @@ namespace wright {
 
         /// Send a job to the child
         void write(boost::asio::io_service &ios, const std::string &command,
-            boost::asio::yield_context &yield);
+            boost::asio::yield_context yield);
         /// Read the job that the child has done
         std::string read(boost::asio::io_service &ios, boost::asio::streambuf &buffer,
             boost::asio::yield_context yield);
