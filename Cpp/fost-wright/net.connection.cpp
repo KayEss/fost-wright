@@ -1,5 +1,5 @@
 /*
-    Copyright 2017, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -44,7 +44,11 @@ namespace {
 
 
 wright::connection::connection(boost::asio::io_service &ios, peering p, wright::capacity &cap)
-: tcp_connection(ios, p), queue(ios), capacity(cap), reference(c_cnx, std::to_string(id)) {
+: tcp_connection(ios, p),
+    queue(ios),
+    capacity(cap),
+    reference(c_cnx, std::to_string(id))
+{
 }
 
 

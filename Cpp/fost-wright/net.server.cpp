@@ -1,5 +1,5 @@
 /*
-    Copyright 2017, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -47,7 +47,8 @@ namespace {
                     cnx->process(cnx);
                 }
             });
-        fostlib::log::debug(wright::c_exec_helper, "Waiting for new connection");
+        fostlib::log::warning(wright::c_exec_helper)
+            ("", "Waiting for new connection");
     }
 }
 
@@ -59,5 +60,8 @@ void wright::start_server(
     boost::asio::ip::tcp::endpoint endpoint{h.address(), port};
     auto acceptor = std::make_shared<boost::asio::ip::tcp::acceptor>(listen_ios, endpoint);
     accept(sock_ios, acceptor, cap);
+    fostlib::log::warning(wright::c_exec_helper)
+        ("", "Started async acceptor")
+        ("port", port);
 }
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2017, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -64,7 +64,7 @@ namespace {
 rask::out_packet wright::out::execute(std::string job) {
     ++p_out_execute;
     rask::out_packet packet(packet::execute);
-    packet << fostlib::utf::u8_view(job);
+    packet << f5::u8view(job);
     return packet;
 }
 void wright::in::execute(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {
@@ -78,7 +78,7 @@ namespace {
 rask::out_packet wright::out::completed(const std::string &job) {
     ++p_out_completed;
     rask::out_packet packet(packet::completed);
-    packet << fostlib::utf::u8_view(job);
+    packet << f5::u8view(job);
     return packet;
 }
 void wright::in::completed(std::shared_ptr<connection> cnx, rask::tcp_decoder &packet) {
