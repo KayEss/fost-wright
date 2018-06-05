@@ -1,0 +1,17 @@
+{
+    "wright-exec-helper": {
+        "Logging sinks": {"sinks": [
+            {
+                "name": "stdout",
+                "configuration": {
+                    "channel": "stderr",
+                    "log-level": 1000,
+                    "color": true
+                }
+            },
+            {
+                "name": "panoptes"
+            }
+        ]}
+    }
+}

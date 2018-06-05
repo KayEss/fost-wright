@@ -9,10 +9,6 @@
 #pragma once
 
 
-#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
-#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
-
-
 #include <f5/threading/eventfd.hpp>
 #include <fost/counter>
 #include <fost/timer>
@@ -23,6 +19,10 @@
 
 
 namespace wright {
+
+
+    class capacity;
+    struct child_pool;
 
 
     /// The buffer size for each child
@@ -92,8 +92,31 @@ namespace wright {
         std::string read(boost::asio::io_service &ios, boost::asio::streambuf &buffer,
             boost::asio::yield_context yield);
 
+        /// Handle requests from the child
+        void handle_child_requests(boost::asio::io_service &ctrlios, capacity &,
+            boost::asio::yield_context &yield);
+        /// Drain stderr for the child, transforming into log messages
+        void drain_stderr(boost::asio::io_service &auxios, boost::asio::yield_context &yield);
+        /// Handle stdout which will be used to print the completed jobs
+        void handle_stdout(boost::asio::io_service &ctrlios, boost::asio::yield_context &yield,
+                child_pool &pool, std::function<void(const std::string &)> job_done);
+
         /// Close the pipes
         void close();
+    };
+
+
+    struct child_pool {
+        /// Construct the pool with the specified number of children
+        child_pool( std::size_t number, const char *command);
+
+        /// Start child signal processing
+        void sigchild_handling(boost::asio::io_service &ios);
+
+        /// The children
+        std::vector<childproc> children;
+        /// We want to store statistics about the work done
+        fostlib::time_profile<std::chrono::milliseconds> job_times;
     };
 
 

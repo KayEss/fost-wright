@@ -29,6 +29,15 @@ namespace wright {
     /// The child program to execute
     extern const fostlib::setting<fostlib::json> c_exec;
 
+    /// The port for the server
+    extern const fostlib::setting<uint16_t> c_port;
+    /// The netloc to connect to (instead of reading from stdin)
+    extern const fostlib::setting<fostlib::nullable<fostlib::string>> c_connect;
+    /// Target overspill capacity per worker. This should be used to account
+    /// for extra network latency. Increase as appropriate to prevent work
+    /// stalls.
+    extern const fostlib::setting<std::size_t> c_overspill_cap_per_worker;
+
     /// Whether to simulate
     extern const fostlib::setting<bool> c_simulate;
     /// Set to false to stop the simulated worker from crashing

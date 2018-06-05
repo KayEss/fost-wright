@@ -8,6 +8,7 @@
 
 #include <wright/configuration.hpp>
 #include <wright/exec.logging.hpp>
+#include <wright/net.packets.hpp>
 
 #include <fost/insert>
 #include <fost/log>
@@ -51,6 +52,42 @@ fostlib::json wright::child_logging() {
     fostlib::insert(sink, "name", "wright.rawfd");
     fostlib::insert(sink, "configuration", "fd", c_resend_fd.value());
     fostlib::push_back(ret, "sinks", sink);
+    return ret;
+}
+
+
+namespace {
+
+    struct netlog {
+        const std::size_t level;
+        netlog(const fostlib::json &conf)
+        : level{not conf.isobject() ?
+            1000u : fostlib::coerce<fostlib::nullable<std::size_t>>(conf["level"]).value_or(1000u)}
+        {
+        }
+
+        bool operator () (const fostlib::log::message &m) {
+            if ( m.level() >= level ) {
+                wright::connection::broadcast([&m]() {
+                    return wright::out::log_message(m);
+                });
+            }
+            return true;
+        }
+    };
+
+    const fostlib::log::global_sink<netlog> netlog_logger("wright.network");
+
+}
+
+fostlib::json wright::network_logging() {
+    fostlib::json ret, screen, net;
+    fostlib::insert(screen, "name", "stdout");
+    fostlib::insert(screen, "configuration", "log-level", 0);
+    fostlib::insert(screen, "configuration", "color", true);
+    fostlib::push_back(ret, "sinks", screen);
+    fostlib::insert(net, "name", "wright.network");
+    fostlib::push_back(ret, "sinks", net);
     return ret;
 }
 

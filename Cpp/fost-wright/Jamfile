@@ -3,4 +3,11 @@ fost-lib-autotest fost-wright
     : Cpp/fost-wright
     :
         $(TOP)/../Boost//boost-coroutine-dll
+        ../../../fost-internet/Cpp/fost-inet
+        ../../../fost-internet/Cpp/fost-rask-proto
+    :
+        <define>BOOST_COROUTINES_NO_DEPRECATION_WARNING
+        <define>BOOST_COROUTINE_NO_DEPRECATION_WARNING
+        <cxxflags>-Wno-unused-variable
     ;
+

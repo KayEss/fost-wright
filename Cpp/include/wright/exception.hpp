@@ -9,9 +9,7 @@
 #pragma once
 
 
-#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
-#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
-
+#include <fost/log>
 
 #include <functional>
 #include <iostream>
@@ -25,7 +23,16 @@ namespace wright {
 
 
     /// Exception recovery function that re-throws the exception.
-    const auto rethrow = []() { throw; };
+    const auto rethrow = []() {
+        throw;
+    };
+
+    /// An exception recovery handler we can use here
+    const auto exit_on_error = []() {
+        fostlib::log::flush();
+        std::exit(9);
+    };
+
 
     /// Wrap a function to display exceptions
     const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {
@@ -47,6 +54,7 @@ namespace wright {
                 }
             };
         };
+    };
 
 
 }

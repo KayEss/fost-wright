@@ -7,13 +7,32 @@
 
 
 #include <wright/configuration.hpp>
+#include <wright/exception.hpp>
+#include <wright/exec.capacity.hpp>
 #include <wright/exec.childproc.hpp>
 
 #include <fost/log>
 
+#include <boost/asio/spawn.hpp>
+
 #include <iostream>
 
+#include <signal.h>
 #include <sys/wait.h>
+#include <unistd.h>
+
+
+using namespace std::literals::chrono_literals;
+
+
+namespace {
+
+
+    fostlib::performance p_crashes(wright::c_exec_helper, "child", "crashed");
+    fostlib::performance p_resent(wright::c_exec_helper, "jobs", "resent");
+
+
+}
 
 
 void wright::fork_worker() {
@@ -30,10 +49,11 @@ void wright::fork_worker() {
     while ( true ) {
         int pid = ::fork();
         if ( pid < 0 ) {
-            fostlib::log::error(c_exec_helper)
+            fostlib::log::critical(c_exec_helper)
                 ("", "Fork failed")
                 ("parent", ::getpid());
-            exit(5);
+            fostlib::log::flush();
+            std::exit(5);
         } else if ( pid == 0 ) {
             ::execvp(argv.front(), const_cast<char *const*>(argv.data()));
             std::cerr << "Child process failed to start:";
@@ -94,7 +114,7 @@ wright::childproc::childproc(std::size_t n, const char *command)
     commands(buffer_size)
 {
     argv.push_back(command);
-    argv.push_back("-c");
+    argv.push_back("--child");
     argv.push_back(counters->reference.name()); // child number
     argv.push_back("-b"); // No banner
     argv.push_back("false");
@@ -137,7 +157,15 @@ void wright::childproc::write(
 ) {
     std::array<boost::asio::streambuf::const_buffers_type, 2>
         buffer{{{command.data(), command.size()}, newline.buffer.data()}};
-    boost::asio::async_write(stdin.parent(ios), buffer, yield);
+    boost::system::error_code error;
+    boost::asio::async_write(stdin.parent(ios), buffer, yield[error]);
+    if ( error ) {
+        fostlib::log::critical(counters->reference)
+            ("", "Error writing to pipe for child")
+            ("error", error);
+        fostlib::log::flush();
+        std::exit(7);
+    }
 }
 
 
@@ -176,10 +204,253 @@ std::string wright::childproc::read(
 }
 
 
+void wright::childproc::handle_child_requests(
+    boost::asio::io_service &ctrlios, capacity &cap, boost::asio::yield_context &yield
+) {
+    boost::asio::streambuf buffer;
+    boost::system::error_code error;
+    while ( resend.parent(ctrlios).is_open() ) {
+        auto bytes = boost::asio::async_read(resend.parent(ctrlios), buffer,
+            boost::asio::transfer_exactly(1), yield[error]);
+        if ( bytes && not error ) {
+            switch ( char byte = buffer.sbumpc() ) {
+            default:
+                fostlib::log::warning(counters->reference)
+                    ("", "Got unkown resend request byte")
+                    ("byte", int(byte));
+                break;
+            case 'r':
+                ++p_crashes;
+                if ( cap.input_complete.load() && commands.empty() ) {
+                    /// The work is done, but the child seems
+                    /// to be looping in an error. Kill it
+                    ::kill(pid, SIGTERM);
+                } else {
+                    auto logger = fostlib::log::debug(counters->reference);
+                    logger
+                        ("", "Resending jobs for child")
+                        ("child", pid)
+                        ("job", "count", commands.size());
+                    fostlib::json jobs;
+                    for ( auto &job : commands ) {
+                        fostlib::push_back(jobs, job.command);
+                        write(ctrlios, job.command, yield);
+                        ++p_resent;
+                    }
+                    if ( jobs.size() ) logger("job", "list", jobs);
+                }
+                break;
+            case 'x': {
+                    fostlib::log::critical(counters->reference,
+                        "Child process failed to execvp worker process");
+                    fostlib::log::flush();
+                    std::exit(10);
+                }
+            case '{': {
+                    fostlib::string jsonstr{"{"};
+                    auto bytes = boost::asio::async_read_until(resend.parent(ctrlios), buffer, 0, yield[error]);
+                    if ( not error ) {
+                        for ( ; bytes; --bytes ) {
+                            char next = buffer.sbumpc();
+                            if ( next ) jsonstr += next;
+                        }
+                    }
+                    fostlib::log::log(fostlib::log::message(
+                        counters->reference, fostlib::json::parse(jsonstr)));
+                    break;
+                }
+            }
+        } else {
+            fostlib::log::critical(c_exec_helper)
+                ("", "Error reading from child pipe")
+                ("error", error)
+                ("bytes", bytes);
+            fostlib::log::flush();
+            std::exit(8);
+        }
+    }
+}
+
+
+void wright::childproc::drain_stderr(
+    boost::asio::io_service &auxios, boost::asio::yield_context &yield
+) {
+    boost::asio::streambuf buffer;
+    fostlib::string line;
+    while ( stderr.parent(auxios).is_open() ) {
+        boost::system::error_code error;
+        auto bytes = boost::asio::async_read_until(stderr.parent(auxios), buffer, '\n', yield[error]);
+        if ( error ) {
+            fostlib::log::error(counters->reference)
+                ("", "Error reading child stderr")
+                ("error", error)
+                ("bytes", bytes);
+            return;
+        } else if ( bytes ) {
+            while ( bytes-- ) {
+                char next = buffer.sbumpc();
+                if ( next != '\n' ) line += next;
+            }
+            auto parsed = fostlib::json::parse(line, fostlib::json(line));
+            fostlib::log::warning(counters->reference)
+                ("", "Child stderr")
+                ("child", pid)
+                ("stderr", parsed);
+            line.clear();
+        }
+    }
+}
+
+
+void wright::childproc::handle_stdout(
+    boost::asio::io_service &ctrlios,
+    boost::asio::yield_context &yield,
+    child_pool &pool,
+    std::function<void(const std::string &)> job_done
+) {
+    boost::asio::streambuf buffer;
+    while ( stdout.parent(ctrlios).is_open() ) {
+        boost::system::error_code error;
+        auto ret = read(ctrlios, buffer, yield[error]);
+        if ( not error && not ret.empty() &&
+                commands.size() &&
+                ret == commands.front().command )
+        {
+//             ++(counters->completed);
+            pool.job_times.record(commands.front().time);
+            commands.pop_front();
+            if ( commands.size() ) commands.front().time.reset();
+            auto logger = fostlib::log::debug(c_exec_helper);
+            logger
+                ("", "Got result from child")
+                ("child", pid)
+                ("result", ret.c_str());
+            job_done(ret);
+        } else if ( error ) {
+            fostlib::log::warning(c_exec_helper)
+                ("", "Read error from child stdout")
+                ("child", pid)
+                ("error", error);
+        } else if ( not ret.empty() ) {
+            if ( commands.empty() ) {
+                fostlib::log::debug(c_exec_helper)
+                    ("", "Ignored line from child")
+                    ("input", "string", ret.c_str())
+                    ("input", "size", ret.size());
+            } else {
+                auto &command = commands.front().command;
+                fostlib::log::debug(c_exec_helper)
+                    ("", "Ignored line from child")
+                    ("input", "string", ret.c_str())
+                    ("input", "size", ret.size())
+                    ("expected", "string", command.c_str())
+                    ("expected", "size", command.size())
+                    ("match", ret == command);
+            }
+        }
+    }
+    fostlib::log::info(c_exec_helper)
+        ("", "Child done because it's pipe closed")
+        ("pid", pid);
+}
+
+
 void wright::childproc::close() {
     stdin.close();
     stdout.close();
     stderr.close();
     resend.close();
+}
+
+
+/*
+ * wright::child_pool
+ */
+
+
+namespace {
+
+
+    /// Pipe used to signall the event loop that a child has died
+    std::unique_ptr<wright::pipe_out> sigchild;
+
+    void sigchild_handler(int sig) {
+        const char child[] = "c";
+        /// Write a single byte into the pipe
+        ::write(sigchild->child(), child, 1u);
+    }
+    void attach_sigchild_handler() {
+        struct sigaction sa;
+        ::sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0; // No options needed
+        sa.sa_handler = sigchild_handler;
+        if ( ::sigaction(SIGCHLD, &sa, nullptr) < 0 ) {
+            throw fostlib::exceptions::not_implemented(__func__,
+                "Failed to establish signal handler for SIGCHLD");
+        }
+    }
+    auto sigchild_reactor(
+        boost::asio::io_service &auxios, wright::child_pool &pool
+    ) {
+        return [&](auto yield) {
+            boost::asio::streambuf buffer;
+            boost::system::error_code error;
+            while ( sigchild->parent(auxios).is_open() ) {
+                auto bytes = boost::asio::async_read(sigchild->parent(auxios), buffer,
+                    boost::asio::transfer_exactly(1), yield[error]);
+                if ( bytes && not error ) {
+                    switch ( char byte = buffer.sbumpc() ) {
+                    default:
+                        std::cerr << "Got signal byte " << int(byte) << std::endl;
+                        break;
+                    case 'c':
+                        for ( auto &child : pool.children ) {
+                            if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
+                                fostlib::log::critical(wright::c_exec_helper)
+                                    ("", "Immediate child dead -- Time to PANIC")
+                                    ("child", "number", child.number)
+                                    ("child", "pid", child.pid);
+                                fostlib::log::flush();
+                                std::exit(4);
+                            }
+                        }
+                    }
+                } else {
+                    fostlib::log::critical(wright::c_exec_helper)
+                        ("", "Error reading bytes from SIGCHLD handler pipe")
+                        ("error", error)
+                        ("bytes", bytes);
+                    fostlib::log::flush();
+                    std::exit(9);
+                }
+            }
+        };
+    }
+
+
+}
+
+
+wright::child_pool::child_pool(std::size_t number, const char *command)
+: job_times(5ms, 1.2, 200, 24ms) {
+    children.reserve(number);
+    /// For each child go through and fork and execvp it
+    for ( std::size_t child{}; child < number; ++child ) {
+        children.emplace_back(child + 1, command);
+        children[child].fork_exec([&]() {
+            for ( auto &child : children ) {
+                child.close();
+            }
+        });
+    }
+    /// Now that we have children, we're going to want to deal with
+    /// their deaths
+    sigchild = std::make_unique<wright::pipe_out>();
+    attach_sigchild_handler();
+}
+
+void wright::child_pool::sigchild_handling(boost::asio::io_service &ios) {
+    /// Process the other end of the signal handler pipe
+    boost::asio::spawn(ios, exception_decorator(sigchild_reactor(ios, *this)));
 }
 
