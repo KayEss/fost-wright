@@ -22,7 +22,10 @@ namespace wright {
 
     /// Used to manage the capacity of all workers
     class capacity {
+        /// The total capacity of all work queues. So long as this limit
         f5::eventfd::limiter limit;
+        /// This is used
+        std::size_t child_index = 0u;
         using weak_connection = std::weak_ptr<connection>;
         struct remote {
             uint64_t cap;
@@ -41,7 +44,7 @@ namespace wright {
         capacity(boost::asio::io_service &ios, child_pool &pool);
 
         /// Give this task to a worker when one becomes available
-        void next_job(std::string job, boost::asio::yield_context &yield);
+        void next_job(std::string job, boost::asio::yield_context yield);
         /// Mark (and count) a job as done
         void job_done(const std::string &job);
         /// Mark a network job as having been done
@@ -73,7 +76,7 @@ namespace wright {
         bool all_done() const;
 
         /// Wait until all of the outstanding work is done
-        void wait_until_all_done(boost::asio::yield_context &yield);
+        void wait_until_all_done(boost::asio::yield_context yield);
 
         /// Send a close to each child and wait for them to exit
         void close();

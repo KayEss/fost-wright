@@ -205,7 +205,7 @@ std::string wright::childproc::read(
 
 
 void wright::childproc::handle_child_requests(
-    boost::asio::io_service &ctrlios, capacity &cap, boost::asio::yield_context &yield
+    boost::asio::io_service &ctrlios, capacity &cap, boost::asio::yield_context yield
 ) {
     boost::asio::streambuf buffer;
     boost::system::error_code error;
@@ -248,15 +248,22 @@ void wright::childproc::handle_child_requests(
                 }
             case '{': {
                     fostlib::string jsonstr{"{"};
-                    auto bytes = boost::asio::async_read_until(resend.parent(ctrlios), buffer, 0, yield[error]);
+                    auto bytes = boost::asio::async_read_until(
+                        resend.parent(ctrlios), buffer, 0, yield[error]);
                     if ( not error ) {
                         for ( ; bytes; --bytes ) {
                             char next = buffer.sbumpc();
                             if ( next ) jsonstr += next;
                         }
                     }
-                    fostlib::log::log(fostlib::log::message(
-                        counters->reference, fostlib::json::parse(jsonstr)));
+                    auto parsed = fostlib::json::parse(jsonstr);
+                    try {
+                        fostlib::log::log(fostlib::log::message(
+                            counters->reference, parsed));
+                    } catch ( fostlib::exceptions::exception &e ) {
+                        throw fostlib::exceptions::not_implemented(__func__,
+                            "Could not turn create a log message from JSON", parsed);
+                    }
                     break;
                 }
             }
@@ -273,7 +280,7 @@ void wright::childproc::handle_child_requests(
 
 
 void wright::childproc::drain_stderr(
-    boost::asio::io_service &auxios, boost::asio::yield_context &yield
+    boost::asio::io_service &auxios, boost::asio::yield_context yield
 ) {
     boost::asio::streambuf buffer;
     fostlib::string line;
@@ -304,7 +311,7 @@ void wright::childproc::drain_stderr(
 
 void wright::childproc::handle_stdout(
     boost::asio::io_service &ctrlios,
-    boost::asio::yield_context &yield,
+    boost::asio::yield_context yield,
     child_pool &pool,
     std::function<void(const std::string &)> job_done
 ) {

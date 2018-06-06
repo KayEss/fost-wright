@@ -94,11 +94,11 @@ namespace wright {
 
         /// Handle requests from the child
         void handle_child_requests(boost::asio::io_service &ctrlios, capacity &,
-            boost::asio::yield_context &yield);
+            boost::asio::yield_context yield);
         /// Drain stderr for the child, transforming into log messages
-        void drain_stderr(boost::asio::io_service &auxios, boost::asio::yield_context &yield);
+        void drain_stderr(boost::asio::io_service &auxios, boost::asio::yield_context yield);
         /// Handle stdout which will be used to print the completed jobs
-        void handle_stdout(boost::asio::io_service &ctrlios, boost::asio::yield_context &yield,
+        void handle_stdout(boost::asio::io_service &ctrlios, boost::asio::yield_context yield,
                 child_pool &pool, std::function<void(const std::string &)> job_done);
 
         /// Close the pipes

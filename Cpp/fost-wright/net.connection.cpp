@@ -86,7 +86,7 @@ std::size_t wright::connection::close_all() {
 }
 
 
-void wright::connection::process_inbound(boost::asio::yield_context &yield) {
+void wright::connection::process_inbound(boost::asio::yield_context yield) {
     auto redistribute = [&](bool from_catch) {
         if ( peer == client_side ) {
             /// Network connection has closed...
@@ -116,7 +116,7 @@ void wright::connection::process_inbound(boost::asio::yield_context &yield) {
 }
 
 
-void wright::connection::process_outbound(boost::asio::yield_context  &yield) {
+void wright::connection::process_outbound(boost::asio::yield_context  yield) {
     while ( socket.is_open() ) {
         auto packet = queue.consume(yield);
         packet(socket, yield);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2017, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -31,21 +31,14 @@ wright::capacity::capacity(boost::asio::io_service &ios, child_pool &p)
 }
 
 
-void wright::capacity::next_job(std::string job, boost::asio::yield_context &yield) {
-    auto task = limit.next_job(yield); // Must do this first so it can block
+void wright::capacity::next_job(std::string job, boost::asio::yield_context yield) {
+    /// First of all we wait for a spare slot in one of the work queues.
+    /// The limit capacity must exactly equal the total slot capacity in
+    /// all queues.
+    auto task = limit.next_job(yield);
     ++p_accepted;
-    for ( auto &child : pool.children ) {
-        if ( not child.commands.full() ) {
-            child.write(limit.get_io_service(), job, yield);
-            child.commands.push_back(wright::job{job, std::move(task)});
-//             ++(child.counters->accepted);
-            fostlib::log::debug(child.counters->reference)
-                ("", "Given job to worker")
-                ("pid", child.pid)
-                ("job", job.c_str());
-            return;
-        }
-    }
+    /// Try to put the work out over the network first before doing anything
+    /// locally.
     for ( auto &cxv : connections ) {
         auto cnx = cxv.first.lock();
         if ( cnx && cxv.second.cap > cxv.second.work.size() ) {
@@ -54,13 +47,26 @@ void wright::capacity::next_job(std::string job, boost::asio::yield_context &yie
             return;
         }
     }
-    fostlib::log::error(c_exec_helper, "Got a job and nowhere to put it");
-    fostlib::log::flush();
-    std::exit(6);
+    do {
+        /** Do a rotate left first so we won't try the
+            same child two times in a row without trying
+            the others first. This should spread the jobs
+            out across.
+        */
+        ++child_index;
+        child_index = child_index % pool.children.size();
+    } while ( pool.children[child_index].commands.full() );
+    auto &child{pool.children[child_index]};
+    child.write(limit.get_io_service(), job, yield);
+    child.commands.push_back(wright::job{job, std::move(task)});
 }
+
+
 void wright::capacity::job_done(const std::string &job) {
     ++p_completed;
 }
+
+
 void wright::capacity::job_done(std::shared_ptr<connection> cnx, const std::string &job) {
     auto &rmt = connections[cnx];
     auto pos = rmt.work.find(job);
@@ -75,6 +81,8 @@ void wright::capacity::job_done(std::shared_ptr<connection> cnx, const std::stri
         std::cout << job << std::endl;
     }
 }
+
+
 void wright::capacity::overspill_work(std::shared_ptr<connection> cnx) {
     auto logger{fostlib::log::debug(c_exec_helper)};
     logger("", "Redistributing work");
@@ -113,7 +121,7 @@ bool wright::capacity::all_done() const {
 }
 
 
-void wright::capacity::wait_until_all_done(boost::asio::yield_context &yield) {
+void wright::capacity::wait_until_all_done(boost::asio::yield_context yield) {
     limit.wait_for_all_outstanding(yield);
 }
 

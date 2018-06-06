@@ -50,9 +50,9 @@ namespace wright {
 
     protected:
         /// Process inbound messages
-        void process_inbound(boost::asio::yield_context &) override;
+        void process_inbound(boost::asio::yield_context) override;
         /// The outbound message stream
-        void process_outbound(boost::asio::yield_context &) override;
+        void process_outbound(boost::asio::yield_context) override;
         /// The connection has been established
         void established() override;
     };
