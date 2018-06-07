@@ -1,5 +1,5 @@
 /*
-    Copyright 2017, Felspar Co Ltd. http://support.felspar.com/
+    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
     Distributed under the Boost Software License, Version 1.0.
     See accompanying file LICENSE_1_0.txt or copy at
         http://www.boost.org/LICENSE_1_0.txt
@@ -9,9 +9,7 @@
 #pragma once
 
 
-#define BOOST_COROUTINES_NO_DEPRECATION_WARNING
-#define BOOST_COROUTINE_NO_DEPRECATION_WARNING
-
+#include <fost/log>
 
 #include <functional>
 #include <iostream>
@@ -25,7 +23,16 @@ namespace wright {
 
 
     /// Exception recovery function that re-throws the exception.
-    const auto rethrow = []() { throw; };
+    const auto rethrow = []() {
+        throw;
+    };
+
+    /// An exception recovery handler we can use here
+    const auto exit_on_error = []() {
+        fostlib::log::flush();
+        std::exit(9);
+    };
+
 
     /// Wrap a function to display exceptions
     const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {
@@ -46,7 +53,7 @@ namespace wright {
                     return recov();
                 }
             };
-        };
+    };
 
 
 }

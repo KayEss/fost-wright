@@ -21,6 +21,9 @@ namespace wright {
     /// Start child processes and route work to them
     void exec_helper(std::ostream &out, const char *command);
 
+    /// Connect to a supervisor over the network
+    void netvisor(const char *command);
+
 
 }
 

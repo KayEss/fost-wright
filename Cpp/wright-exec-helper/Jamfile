@@ -1,8 +1,14 @@
 fost-exe wright-exec-helper
     :
         $(TOP)/../Boost//boost-coroutine-dll
+        ../../../fost-internet/Cpp/fost-inet
+        ../../../fost-internet/Cpp/fost-rask-proto
         ../fost-wright
         wright-exec-helper.cpp
+    :
+        <define>BOOST_COROUTINES_NO_DEPRECATION_WARNING
+        <define>BOOST_COROUTINE_NO_DEPRECATION_WARNING
+        <cxxflags>-Wno-unused-variable
     ;
 
 fost-install $(TOP)/../Boost//boost-chrono-dll ;
