@@ -1,8 +1,8 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <http://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -42,7 +42,7 @@ void wright::netvisor(const char *command) {
     capacity workers{ctrlios, pool};
 
     /// Set up the network connection to the server
-    auto cnx = rask::tcp_connect<connection>(
+    auto cnx = fostlib::hod::tcp_connect<connection>(
         fostlib::host{c_connect.value().value(), c_port.value()},
         ctrlios, connection::client_side, workers);
     fostlib::log::info(wright::c_exec_helper)
