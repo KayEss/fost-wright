@@ -1,15 +1,15 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <http://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
 #pragma once
 
 
-#include <fost/rask/protocol>
+#include <fost/hod/protocol>
 #include <f5/threading/queue.hpp>
 
 #include <future>
@@ -24,13 +24,13 @@ namespace wright {
 
     /// Hold the connection state
     class connection final :
-        public rask::tcp_connection,
+        public fostlib::hod::tcp_connection,
         public std::enable_shared_from_this<connection>
     {
         std::promise<void> blocker;
     public:
         /// The outbound queue for this connection
-        f5::boost_asio::queue<rask::out_packet> queue;
+        f5::boost_asio::queue<fostlib::hod::out_packet> queue;
         /// The total capacity of this side of the connection
         wright::capacity &capacity;
         /// Reference used for logging etc.
@@ -43,7 +43,7 @@ namespace wright {
         void wait_for_close();
 
         /// Broadcast a message to all connections
-        static std::size_t broadcast(std::function<rask::out_packet(void)>);
+        static std::size_t broadcast(std::function<fostlib::hod::out_packet(void)>);
 
         /// Close all network connections
         static std::size_t close_all();

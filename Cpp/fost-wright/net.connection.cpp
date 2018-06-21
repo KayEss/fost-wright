@@ -1,8 +1,8 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <http://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -58,7 +58,7 @@ void wright::connection::wait_for_close() {
 }
 
 
-std::size_t wright::connection::broadcast(std::function<rask::out_packet(void)> gen) {
+std::size_t wright::connection::broadcast(std::function<fostlib::hod::out_packet(void)> gen) {
     std::unique_lock<std::mutex> lock(g_mutex);
     std::size_t queued{};
     for ( auto &w : g_connections ) {

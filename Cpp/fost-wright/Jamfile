@@ -4,7 +4,7 @@ fost-lib-autotest fost-wright
     :
         $(TOP)/../Boost//boost-coroutine-dll
         ../../../fost-internet/Cpp/fost-inet
-        ../../../fost-internet/Cpp/fost-rask-proto
+        ../../../fost-internet/Cpp/fost-hod
     :
         <define>BOOST_COROUTINES_NO_DEPRECATION_WARNING
         <define>BOOST_COROUTINE_NO_DEPRECATION_WARNING

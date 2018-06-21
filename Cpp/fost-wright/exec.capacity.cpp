@@ -1,8 +1,8 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <http://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -87,14 +87,22 @@ void wright::capacity::overspill_work(std::shared_ptr<connection> cnx) {
     auto logger{fostlib::log::debug(c_exec_helper)};
     logger("", "Redistributing work");
     std::size_t redist{};
+    /**
+        If the incoming connection wasn't actually a real one (some people
+        try to talk to it via things like HTTP by accident) then the connection
+        won't be found in the `connections` mapping so there isn't anything
+        to do here.
+    */
     auto prmt = connections.find(cnx);
-    for ( auto &w : prmt->second.work ) {
-        overspill.produce(std::string(w.first));
-        ++redist;
+    if ( prmt != connections.end() ) {
+        for ( auto &w : prmt->second.work ) {
+            overspill.produce(std::string(w.first));
+            ++redist;
+        }
+        logger("jobs", redist);
+        logger("limit", limit.decrease_limit(prmt->second.cap));
+        connections.erase(prmt);
     }
-    logger("jobs", redist);
-    logger("limit", limit.decrease_limit(prmt->second.cap));
-    connections.erase(prmt);
 }
 
 
