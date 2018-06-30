@@ -1,7 +1,0 @@
-
-install fost-wring-config :
-        log-show-all.json
-        log-show-info.json
-    :
-        <location>$(PREFIX)/Configuration
-    ;
