@@ -1,8 +1,8 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <http://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -114,8 +114,8 @@ void wright::exec_helper(std::ostream &out, const char *command) {
             for ( auto job{workers.overspill.consume()}; job; job = workers.overspill.consume() ) {
                 fostlib::log::debug(c_exec_helper)
                     ("", "Fetched overspill job")
-                    ("job", job.value().c_str());
-                workers.next_job(std::move(job.value()), yield);
+                    ("job", (*job).c_str());
+                workers.next_job(std::move(*job), yield);
             }
         };
         boost::asio::streambuf buffer;
