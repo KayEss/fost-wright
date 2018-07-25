@@ -1,4 +1,4 @@
-add_executable(fost-wright-exec wright-exec-helper.cpp)
-target_link_libraries(fost-wright-exec fost-cli fost-wright)
-install(TARGETS fost-wright-exec EXPORT fost-webserver RUNTIME DESTINATION bin)
+add_executable(wright-exec-helper wright-exec-helper.cpp)
+target_link_libraries(wright-exec-helper fost-cli fost-wright)
+install(TARGETS wright-exec-helper EXPORT wright-exec-helper RUNTIME DESTINATION bin)
 
