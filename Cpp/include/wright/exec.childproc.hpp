@@ -1,15 +1,15 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <https://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
 #pragma once
 
 
-#include <f5/threading/eventfd.hpp>
+#include <f5/threading/limiters.hpp>
 #include <fost/counter>
 #include <fost/timer>
 
@@ -35,7 +35,7 @@ namespace wright {
 
     struct job {
         std::string command;
-        std::shared_ptr<f5::eventfd::limiter::job> limiter;
+        std::shared_ptr<f5::fd::limiter::job> limiter;
         fostlib::timer time;
     };
 

@@ -1,8 +1,8 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <https://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -23,13 +23,13 @@ namespace wright {
     /// Used to manage the capacity of all workers
     class capacity {
         /// The total capacity of all work queues. So long as this limit
-        f5::eventfd::limiter limit;
+        f5::fd::limiter limit;
         /// This is used
         std::size_t child_index = 0u;
         using weak_connection = std::weak_ptr<connection>;
         struct remote {
             uint64_t cap;
-            std::map<std::string, std::unique_ptr<f5::eventfd::limiter::job>> work;
+            std::map<std::string, std::unique_ptr<f5::fd::limiter::job>> work;
         };
         std::map<weak_connection, remote, std::owner_less<weak_connection>> connections;
     public:
@@ -50,7 +50,7 @@ namespace wright {
         /// Mark a network job as having been done
         void job_done(std::shared_ptr<connection> cnx, const std::string &job);
         /// Move all of the outstanding work for the connection to the
-        /// overspill and the remove the connection as it is now dead.
+        /// over spill and the remove the connection as it is now dead.
         void overspill_work(std::shared_ptr<connection> cnx);
 
         /// Return the limit on the capacity
