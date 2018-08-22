@@ -1,8 +1,8 @@
-/*
-    Copyright 2017-2018, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2017-2018, Felspar Co Ltd. <https://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -216,12 +216,14 @@ void wright::childproc::handle_child_requests(
             switch ( char byte = buffer.sbumpc() ) {
             default:
                 fostlib::log::warning(counters->reference)
-                    ("", "Got unkown resend request byte")
+                    ("", "Got unknown resend request byte")
                     ("byte", int(byte));
                 break;
             case 'r':
                 ++p_crashes;
                 if ( cap.input_complete.load() && commands.empty() ) {
+                    fostlib::log::error(counters->reference,
+                        "Child had to re-start worker, but all work is done");
                     /// The work is done, but the child seems
                     /// to be looping in an error. Kill it
                     ::kill(pid, SIGTERM);
@@ -378,7 +380,7 @@ void wright::childproc::close() {
 namespace {
 
 
-    /// Pipe used to signall the event loop that a child has died
+    /// Pipe used to signal the event loop that a child has died
     std::unique_ptr<wright::pipe_out> sigchild;
 
     void sigchild_handler(int sig) {
@@ -403,22 +405,45 @@ namespace {
             boost::asio::streambuf buffer;
             boost::system::error_code error;
             while ( sigchild->parent(auxios).is_open() ) {
-                auto bytes = boost::asio::async_read(sigchild->parent(auxios), buffer,
+                const auto bytes = boost::asio::async_read(sigchild->parent(auxios), buffer,
                     boost::asio::transfer_exactly(1), yield[error]);
                 if ( bytes && not error ) {
-                    switch ( char byte = buffer.sbumpc() ) {
-                    default:
-                        std::cerr << "Got signal byte " << int(byte) << std::endl;
-                        break;
-                    case 'c':
-                        for ( auto &child : pool.children ) {
-                            if ( child.pid == waitpid(child.pid, nullptr, WNOHANG) ) {
-                                fostlib::log::critical(wright::c_exec_helper)
-                                    ("", "Immediate child dead -- Time to PANIC")
-                                    ("child", "number", child.number)
-                                    ("child", "pid", child.pid);
-                                fostlib::log::flush();
-                                std::exit(4);
+                    for ( auto remaining{bytes}; remaining; --remaining ) {
+                        switch ( char byte = buffer.sbumpc() ) {
+                        default:
+                            std::cerr << "Got signal byte " << int(byte) << std::endl;
+                            break;
+                        case 'c':
+                            for ( auto &child : pool.children ) {
+                                int status{};
+                                if ( child.pid == waitpid(child.pid, &status, WNOHANG) ) {
+                                    if ( child.commands.empty() ) {
+                                        fostlib::log::warning(child.counters->reference)
+                                            ("", "Immediate child has died with an empty command queue. "
+                                                "Leaving child not without restarting")
+                                            ("child", "pid", child.pid);
+                                    } else {
+                                        const bool wifexited = WIFEXITED(status);
+                                        const auto wexitstatus = wifexited ?
+                                            fostlib::json(WEXITSTATUS(status)) : fostlib::json();
+                                        const bool wifsignaled = WIFSIGNALED(status);
+                                        const auto wtermsig = wifsignaled ?
+                                            fostlib::json(WTERMSIG(status)) : fostlib::json();
+                                        const auto wstopsig = wifsignaled ?
+                                            fostlib::json(WSTOPSIG(status)) : fostlib::json();
+                                        fostlib::log::critical(wright::c_exec_helper)
+                                            ("", "Immediate child dead -- Time to PANIC")
+                                            ("child", "number", child.number)
+                                            ("child", "pid", child.pid)
+                                            ("status", "WIFEXITED", wifexited)
+                                            ("status", "WIFSIGNALED", wifsignaled)
+                                            ("status", "WEXITSTATUS", wexitstatus)
+                                            ("status", "WTERMSIG", wtermsig)
+                                            ("status", "WSTOPSIG", wstopsig);
+                                        fostlib::log::flush();
+                                        std::exit(4);
+                                    }
+                                }
                             }
                         }
                     }

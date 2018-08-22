@@ -42,12 +42,15 @@ namespace wright {
                 } catch ( boost::coroutines::detail::forced_unwind & ) {
                     throw;
                 } catch ( fostlib::exceptions::exception &e ) {
+                    fostlib::log::flush();
                     std::cerr << e << std::endl;
                     return recov();
                 } catch ( std::exception &e ) {
+                    fostlib::log::flush();
                     std::cerr << e.what() << ": " << wright::c_child.value() << std::endl;
                     return recov();
                 } catch ( ... ) {
+                    fostlib::log::flush();
                     std::cerr << "Unkown exception: " << wright::c_child.value() << " - "
                         << __cxxabiv1::__cxa_current_exception_type()->name() << std::endl;
                     return recov();
