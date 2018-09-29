@@ -25,7 +25,7 @@ fostlib::hod::out_packet wright::out::version(capacity &cap) {
     ++p_out_version;
     fostlib::hod::out_packet packet{packet::version};
     packet << g_proto.max_version();
-    packet << total_capacity;
+    packet << uint64_t{total_capacity};
     return packet;
 }
 void wright::in::version(std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &packet) {
