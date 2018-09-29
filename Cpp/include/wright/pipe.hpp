@@ -7,7 +7,7 @@
 
 
 #include <cstddef>
-#include <experimental/optional>
+#include <optional>
 #include <tuple>
 #include <utility>
 
@@ -33,7 +33,7 @@ namespace wright {
         template<std::size_t PFD, std::size_t CFD>
         class pipe final {
             int parent_fd = 0;
-            std::experimental::optional<boost::asio::posix::stream_descriptor> parent_sd;
+            std::optional<boost::asio::posix::stream_descriptor> parent_sd;
             int child_fd = 0;
         public:
             /// Create a new pipe
