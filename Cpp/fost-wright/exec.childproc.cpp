@@ -390,7 +390,7 @@ namespace {
     }
     void attach_sigchild_handler() {
         struct sigaction sa;
-        ::sigemptyset(&sa.sa_mask);
+        sigemptyset(&sa.sa_mask);
         sa.sa_flags = 0; // No options needed
         sa.sa_handler = sigchild_handler;
         if ( ::sigaction(SIGCHLD, &sa, nullptr) < 0 ) {
