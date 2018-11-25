@@ -19,20 +19,23 @@ namespace wright {
 
 
     /// The protocol description for Wright
-    using protocol_definition = fostlib::hod::protocol<std::function<
-        void(std::shared_ptr<connection>, fostlib::hod::tcp_decoder&)>>;
+    using protocol_definition = fostlib::hod::protocol<std::function<void(
+            std::shared_ptr<connection>, fostlib::hod::tcp_decoder &)>>;
     extern const protocol_definition g_proto;
 
 
     /// Listen for inbound connections. The `listen` service is used for
     /// accepting connection and the `socket` service is used for the
     /// subsequent sockets.
-    void start_server(boost::asio::io_service &listen_ios,
-        boost::asio::io_service &socket_ios, uint16_t port, capacity &);
+    void start_server(
+            boost::asio::io_service &listen_ios,
+            boost::asio::io_service &socket_ios,
+            uint16_t port,
+            capacity &);
 
     /// Keep a connection to a server open
-    std::shared_ptr<connection> connect_to_server(boost::asio::io_service &ios, fostlib::host);
+    std::shared_ptr<connection>
+            connect_to_server(boost::asio::io_service &ios, fostlib::host);
 
 
 }
-

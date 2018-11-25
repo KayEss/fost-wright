@@ -31,8 +31,10 @@ namespace wright {
             uint64_t cap;
             std::map<std::string, std::unique_ptr<f5::fd::limiter::job>> work;
         };
-        std::map<weak_connection, remote, std::owner_less<weak_connection>> connections;
-    public:
+        std::map<weak_connection, remote, std::owner_less<weak_connection>>
+                connections;
+
+      public:
         /// The child process pool
         child_pool &pool;
         /// Overspill for the capacity
@@ -54,13 +56,9 @@ namespace wright {
         void overspill_work(std::shared_ptr<connection> cnx);
 
         /// Return the limit on the capacity
-        auto size() const {
-            return limit.limit();
-        }
+        auto size() const { return limit.limit(); }
         /// Return the number of children
-        auto children() const {
-            return pool.children.size();
-        }
+        auto children() const { return pool.children.size(); }
 
         /// Register a network connection with its capacity
         void additional(std::shared_ptr<connection>, uint64_t);
@@ -68,9 +66,7 @@ namespace wright {
         /// Returns the amount of work outstanding. A value of zero
         /// doesn't mean that no more work can be requested, only that
         /// there is currently none outstanding.
-        std::size_t work_outstanding() const {
-            return limit.outstanding();
-        }
+        std::size_t work_outstanding() const { return limit.outstanding(); }
 
         /// Return that everything is done. No more work can be accepted.
         bool all_done() const;
@@ -84,4 +80,3 @@ namespace wright {
 
 
 }
-

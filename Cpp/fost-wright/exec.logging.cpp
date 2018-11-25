@@ -19,7 +19,9 @@ fostlib::json wright::parent_logging() {
     fostlib::json ret, sink;
     fostlib::insert(sink, "name", "stdout");
     fostlib::insert(sink, "configuration", "channel", "stderr");
-    fostlib::insert(sink, "configuration", "log-level", fostlib::log::warning_level_tag::level());
+    fostlib::insert(
+            sink, "configuration", "log-level",
+            fostlib::log::warning_level_tag::level());
     fostlib::insert(sink, "configuration", "color", true);
     fostlib::push_back(ret, "sinks", sink);
     return ret;
@@ -32,12 +34,11 @@ namespace {
         int fd;
 
         rawfd(const fostlib::json &conf)
-        : fd(fostlib::coerce<int>(conf["fd"])) {
-        }
+        : fd(fostlib::coerce<int>(conf["fd"])) {}
 
-        bool operator () (const fostlib::log::message &m) {
+        bool operator()(const fostlib::log::message &m) {
             auto msg = fostlib::json::unparse(
-                fostlib::coerce<fostlib::json>(m), false);
+                    fostlib::coerce<fostlib::json>(m), false);
             ::write(fd, msg.c_str(), msg.length() + 1);
             return true;
         }
@@ -61,16 +62,16 @@ namespace {
     struct netlog {
         const std::size_t level;
         netlog(const fostlib::json &conf)
-        : level{not conf.isobject() ?
-            1000u : fostlib::coerce<fostlib::nullable<std::size_t>>(conf["level"]).value_or(1000u)}
-        {
-        }
+        : level{not conf.isobject()
+                        ? 1000u
+                        : fostlib::coerce<fostlib::nullable<std::size_t>>(
+                                  conf["level"])
+                                  .value_or(1000u)} {}
 
-        bool operator () (const fostlib::log::message &m) {
-            if ( m.level() >= level ) {
-                wright::connection::broadcast([&m]() {
-                    return wright::out::log_message(m);
-                });
+        bool operator()(const fostlib::log::message &m) {
+            if (m.level() >= level) {
+                wright::connection::broadcast(
+                        [&m]() { return wright::out::log_message(m); });
             }
             return true;
         }
@@ -90,4 +91,3 @@ fostlib::json wright::network_logging() {
     fostlib::push_back(ret, "sinks", net);
     return ret;
 }
-

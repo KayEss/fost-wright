@@ -43,41 +43,46 @@ void wright::netvisor(const char *command) {
 
     /// Set up the network connection to the server
     auto cnx = fostlib::hod::tcp_connect<connection>(
-        fostlib::host{c_connect.value().value(), c_port.value()},
-        ctrlios, connection::client_side, workers);
-    fostlib::log::info(wright::c_exec_helper)
-        ("", "Connection established")
-        ("host", c_connect.value())
-        ("port", c_port.value());
+            fostlib::host{c_connect.value().value(), c_port.value()}, ctrlios,
+            connection::client_side, workers);
+    fostlib::log::info(wright::c_exec_helper)("", "Connection established")(
+            "host", c_connect.value())("port", c_port.value());
 
     /// Go through each child and service them properly
-    for ( auto &child : pool.children ) {
+    for (auto &child : pool.children) {
         /// Use a pointer which we can easily capture in lambdas
         auto *cp = &child;
         /// Read completed work on child stdout pipe
         boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-            cp->handle_stdout(ctrlios, yield, workers.pool, [&](const std::string &job) {
-                workers.job_done(job);
-                cnx->queue.produce(out::completed(job));
-            });
-        }));
+                               cp->handle_stdout(
+                                       ctrlios, yield, workers.pool,
+                                       [&](const std::string &job) {
+                                           workers.job_done(job);
+                                           cnx->queue.produce(
+                                                   out::completed(job));
+                                       });
+                           }));
         /// We also need to watch for a resend alert from the child process
-        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-            cp->handle_child_requests(ctrlios, workers, yield);
-        }, exit_on_error));
+        boost::asio::spawn(
+                ctrlios,
+                exception_decorator(
+                        [&, cp](auto yield) {
+                            cp->handle_child_requests(ctrlios, workers, yield);
+                        },
+                        exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
-            cp->drain_stderr(auxios, yield);
-        }));
+                               cp->drain_stderr(auxios, yield);
+                           }));
     }
 
     /// Fetch the jobs from the overspill and give them to workers
     boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
-        while ( not workers.input_complete.load() ) {
-            auto job = workers.overspill.consume(yield);
-            workers.next_job(std::move(job), yield);
-        }
-    }));
+                           while (not workers.input_complete.load()) {
+                               auto job = workers.overspill.consume(yield);
+                               workers.next_job(std::move(job), yield);
+                           }
+                       }));
 
     /// Wait for the connetion to end...
     cnx->wait_for_close();
@@ -88,4 +93,3 @@ void wright::netvisor(const char *command) {
     std::cerr << fostlib::performance::current() << std::endl;
     std::cerr << fostlib::coerce<fostlib::json>(pool.job_times) << std::endl;
 }
-

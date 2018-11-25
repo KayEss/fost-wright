@@ -35,7 +35,8 @@ namespace wright {
             int parent_fd = 0;
             std::optional<boost::asio::posix::stream_descriptor> parent_sd;
             int child_fd = 0;
-        public:
+
+          public:
             /// Create a new pipe
             pipe() {
                 std::tie(parent_fd, child_fd) = detail::pipe_fds(PFD, CFD);
@@ -43,32 +44,29 @@ namespace wright {
             /// Make movable
             pipe(pipe &&p)
             : parent_fd(p.parent_fd),
-                parent_sd(std::move(p.parent_sd)),
-                child_fd(p.child_fd)
-            {
+              parent_sd(std::move(p.parent_sd)),
+              child_fd(p.child_fd) {
                 p.parent_fd = 0;
                 p.child_fd = 0;
             }
             /// Close the file handles
-            ~pipe() {
-                close();
-            }
+            ~pipe() { close(); }
             /// Close the file handles
             void close() {
                 detail::close(parent_fd);
-                if ( parent_sd ) (*parent_sd).close();
+                if (parent_sd) (*parent_sd).close();
                 detail::close(child_fd);
             }
 
             /// Return a copy of the descriptor for the child end. Should be
             /// passed dup2 to set up child end of pipe.
-            int child() const {
-                return child_fd;
-            }
+            int child() const { return child_fd; }
             /// Return the parent in a form usable for ASIO
-            boost::asio::posix::stream_descriptor &parent(boost::asio::io_service &ios) {
-                if ( not parent_sd ) {
-                    parent_sd = boost::asio::posix::stream_descriptor(ios, detail::dup(parent_fd));
+            boost::asio::posix::stream_descriptor &
+                    parent(boost::asio::io_service &ios) {
+                if (not parent_sd) {
+                    parent_sd = boost::asio::posix::stream_descriptor(
+                            ios, detail::dup(parent_fd));
                 }
                 return parent_sd.value();
             }
@@ -88,4 +86,3 @@ namespace wright {
 
 
 }
-

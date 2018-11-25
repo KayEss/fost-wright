@@ -34,27 +34,29 @@ namespace {
     void beat(std::shared_ptr<dog> watcher) {
         watcher->killer.expires_from_now(boost::posix_time::seconds(2));
         watcher->killer.async_wait([watcher](boost::system::error_code error) {
-            if ( not error ) {
-                fostlib::log::critical(wright::c_exec_helper, "Watchdog killer activated");
+            if (not error) {
+                fostlib::log::critical(
+                        wright::c_exec_helper, "Watchdog killer activated");
                 fostlib::log::flush();
                 std::exit(11);
             }
         });
         watcher->heartbeat.expires_from_now(boost::posix_time::seconds(1));
-        watcher->heartbeat.async_wait([watcher](boost::system::error_code error) {
-            if ( not error ) {
-                ++p_beats;
-                beat(watcher);
-            }
-        });
+        watcher->heartbeat.async_wait(
+                [watcher](boost::system::error_code error) {
+                    if (not error) {
+                        ++p_beats;
+                        beat(watcher);
+                    }
+                });
     }
 
 
 }
 
 
-void wright::add_watchdog(boost::asio::io_service &to, boost::asio::io_service &monitored) {
+void wright::add_watchdog(
+        boost::asio::io_service &to, boost::asio::io_service &monitored) {
     auto watcher = std::make_shared<dog>(to, monitored);
     beat(watcher);
 }
-

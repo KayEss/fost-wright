@@ -32,25 +32,26 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
     const auto crash_limit = c_sim_mean.value() + c_sim_sd.value();
 
     std::string command;
-    while ( in ) {
+    while (in) {
         std::getline(in, command);
-        if ( in && not command.empty() ) {
-            if ( not first ) times.record(time);
+        if (in && not command.empty()) {
+            if (not first) times.record(time);
             first = false;
             std::this_thread::sleep_for(rand(gen) * 1ms);
-            if ( rand(gen) > crash_limit && c_can_die.value() ) {
+            if (rand(gen) > crash_limit && c_can_die.value()) {
                 report << "Crash during work... " << ::getpid() << std::endl;
                 exit(3); // Simulate a crash
             }
             time.reset();
             out << command << std::endl;
         }
-        if ( rand(gen) > crash_limit && c_can_die.value() ) {
+        if (rand(gen) > crash_limit && c_can_die.value()) {
             out << "Uh oh, crashed" << std::endl;
             report << "Crash after work... " << ::getpid() << std::endl;
             exit(2); // Simulate a crash
         }
     }
-    report << fostlib::json::unparse(fostlib::coerce<fostlib::json>(times), false) << std::endl;
+    report << fostlib::json::unparse(
+                      fostlib::coerce<fostlib::json>(times), false)
+           << std::endl;
 }
-

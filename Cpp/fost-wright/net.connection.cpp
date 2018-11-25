@@ -25,9 +25,9 @@ namespace {
     void live(std::shared_ptr<wright::connection> ptr) {
         std::unique_lock<std::mutex> lock(g_mutex);
         /// Go through and put this connection in either a spare slot
-        for ( auto &w : g_connections ) {
+        for (auto &w : g_connections) {
             auto slot(w.lock());
-            if ( not slot ) {
+            if (not slot) {
                 w = ptr;
                 return;
             }
@@ -43,13 +43,12 @@ namespace {
 }
 
 
-wright::connection::connection(boost::asio::io_service &ios, peering p, wright::capacity &cap)
+wright::connection::connection(
+        boost::asio::io_service &ios, peering p, wright::capacity &cap)
 : tcp_connection(ios, p),
-    queue(ios),
-    capacity(cap),
-    reference(c_cnx, std::to_string(id))
-{
-}
+  queue(ios),
+  capacity(cap),
+  reference(c_cnx, std::to_string(id)) {}
 
 
 void wright::connection::wait_for_close() {
@@ -58,12 +57,13 @@ void wright::connection::wait_for_close() {
 }
 
 
-std::size_t wright::connection::broadcast(std::function<fostlib::hod::out_packet(void)> gen) {
+std::size_t wright::connection::broadcast(
+        std::function<fostlib::hod::out_packet(void)> gen) {
     std::unique_lock<std::mutex> lock(g_mutex);
     std::size_t queued{};
-    for ( auto &w : g_connections ) {
+    for (auto &w : g_connections) {
         auto cnx(w.lock());
-        if ( cnx ) {
+        if (cnx) {
             cnx->queue.produce(gen());
             ++queued;
         }
@@ -75,9 +75,9 @@ std::size_t wright::connection::broadcast(std::function<fostlib::hod::out_packet
 std::size_t wright::connection::close_all() {
     std::unique_lock<std::mutex> lock(g_mutex);
     std::size_t closed{};
-    for ( auto &w : g_connections ) {
+    for (auto &w : g_connections) {
         auto cnx(w.lock());
-        if ( cnx ) {
+        if (cnx) {
             cnx->socket.close();
             ++closed;
         }
@@ -88,27 +88,29 @@ std::size_t wright::connection::close_all() {
 
 void wright::connection::process_inbound(boost::asio::yield_context yield) {
     auto redistribute = [&](bool from_catch) {
-        if ( peer == client_side ) {
+        if (peer == client_side) {
             /// Network connection has closed...
-            fostlib::log::info(c_exec_helper)
-                ("", "Network connection closed -- releasing connection block")
-                ("from-catch", from_catch);
+            fostlib::log::info(c_exec_helper)(
+                    "",
+                    "Network connection closed -- releasing connection block")(
+                    "from-catch", from_catch);
             blocker.set_value();
         } else {
-            fostlib::log::warning(c_exec_helper)
-                ("", "Network connection closed -- re-distributing outstanding work")
-                ("from-catch", from_catch);
+            fostlib::log::warning(c_exec_helper)(
+                    "",
+                    "Network connection closed -- re-distributing outstanding "
+                    "work")("from-catch", from_catch);
             capacity.overspill_work(shared_from_this());
         }
     };
     try {
         auto self = shared_from_this();
-        receive_loop(*this, yield,
-            [&](auto decode, uint8_t control, std::size_t bytes)
-        {
-            g_proto.dispatch(version(), control, self, decode);
-        });
-    } catch ( ... ) {
+        receive_loop(
+                *this, yield,
+                [&](auto decode, uint8_t control, std::size_t bytes) {
+                    g_proto.dispatch(version(), control, self, decode);
+                });
+    } catch (...) {
         redistribute(true);
         throw;
     }
@@ -116,8 +118,8 @@ void wright::connection::process_inbound(boost::asio::yield_context yield) {
 }
 
 
-void wright::connection::process_outbound(boost::asio::yield_context  yield) {
-    while ( socket.is_open() ) {
+void wright::connection::process_outbound(boost::asio::yield_context yield) {
+    while (socket.is_open()) {
         auto packet = queue.consume(yield);
         packet(socket, yield);
     }
@@ -128,4 +130,3 @@ void wright::connection::established() {
     live(shared_from_this());
     queue.produce(out::version(capacity));
 }
-
