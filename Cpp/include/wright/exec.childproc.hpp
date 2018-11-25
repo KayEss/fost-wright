@@ -66,17 +66,16 @@ namespace wright {
 
         childproc(std::size_t n, const char *);
         childproc(childproc &&);
-        ~childproc() {
-            close();
-        }
+        ~childproc() { close(); }
 
-        /// Execute the process. Perform the clean up before making the execvpe call
+        /// Execute the process. Perform the clean up before making the execvpe
+        /// call
         template<typename F>
         void fork_exec(F tidy) {
             pid = ::fork();
-            if ( pid < 0 ) {
+            if (pid < 0) {
                 throw std::system_error(errno, std::system_category());
-            } else if ( pid == 0 ) {
+            } else if (pid == 0) {
                 dup2(stdin.child(), STDIN_FILENO);
                 dup2(stdout.child(), STDOUT_FILENO);
                 dup2(stderr.child(), STDERR_FILENO);
@@ -86,20 +85,31 @@ namespace wright {
         }
 
         /// Send a job to the child
-        void write(boost::asio::io_service &ios, const std::string &command,
-            boost::asio::yield_context yield);
+        void
+                write(boost::asio::io_service &ios,
+                      const std::string &command,
+                      boost::asio::yield_context yield);
         /// Read the job that the child has done
-        std::string read(boost::asio::io_service &ios, boost::asio::streambuf &buffer,
-            boost::asio::yield_context yield);
+        std::string
+                read(boost::asio::io_service &ios,
+                     boost::asio::streambuf &buffer,
+                     boost::asio::yield_context yield);
 
         /// Handle requests from the child
-        void handle_child_requests(boost::asio::io_service &ctrlios, capacity &,
-            boost::asio::yield_context yield);
+        void handle_child_requests(
+                boost::asio::io_service &ctrlios,
+                capacity &,
+                boost::asio::yield_context yield);
         /// Drain stderr for the child, transforming into log messages
-        void drain_stderr(boost::asio::io_service &auxios, boost::asio::yield_context yield);
+        void drain_stderr(
+                boost::asio::io_service &auxios,
+                boost::asio::yield_context yield);
         /// Handle stdout which will be used to print the completed jobs
-        void handle_stdout(boost::asio::io_service &ctrlios, boost::asio::yield_context yield,
-                child_pool &pool, std::function<void(const std::string &)> job_done);
+        void handle_stdout(
+                boost::asio::io_service &ctrlios,
+                boost::asio::yield_context yield,
+                child_pool &pool,
+                std::function<void(const std::string &)> job_done);
 
         /// Close the pipes
         void close();
@@ -108,7 +118,7 @@ namespace wright {
 
     struct child_pool {
         /// Construct the pool with the specified number of children
-        child_pool( std::size_t number, const char *command);
+        child_pool(std::size_t number, const char *command);
 
         /// Start child signal processing
         void sigchild_handling(boost::asio::io_service &ios);
@@ -121,4 +131,3 @@ namespace wright {
 
 
 }
-

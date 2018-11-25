@@ -24,11 +24,11 @@ namespace wright {
 
     /// Hold the connection state
     class connection final :
-        public fostlib::hod::tcp_connection,
-        public std::enable_shared_from_this<connection>
-    {
+    public fostlib::hod::tcp_connection,
+            public std::enable_shared_from_this<connection> {
         std::promise<void> blocker;
-    public:
+
+      public:
         /// The outbound queue for this connection
         f5::boost_asio::queue<fostlib::hod::out_packet> queue;
         /// The total capacity of this side of the connection
@@ -37,18 +37,20 @@ namespace wright {
         const fostlib::module reference;
 
         /// Create a connection to store the socket
-        connection(boost::asio::io_service &ios, peering p, wright::capacity &cap);
+        connection(
+                boost::asio::io_service &ios, peering p, wright::capacity &cap);
 
         /// Block waiting for the connection to close
         void wait_for_close();
 
         /// Broadcast a message to all connections
-        static std::size_t broadcast(std::function<fostlib::hod::out_packet(void)>);
+        static std::size_t
+                broadcast(std::function<fostlib::hod::out_packet(void)>);
 
         /// Close all network connections
         static std::size_t close_all();
 
-    protected:
+      protected:
         /// Process inbound messages
         void process_inbound(boost::asio::yield_context) override;
         /// The outbound message stream
@@ -59,4 +61,3 @@ namespace wright {
 
 
 }
-

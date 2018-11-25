@@ -34,17 +34,20 @@ using namespace std::literals::chrono_literals;
 namespace {
 
 
-    boost::asio::posix::stream_descriptor connect_stdin(boost::asio::io_service &ctrlios) {
+    boost::asio::posix::stream_descriptor
+            connect_stdin(boost::asio::io_service &ctrlios) {
         boost::asio::posix::stream_descriptor as_stdin{ctrlios};
         boost::system::error_code error;
         as_stdin.assign(dup(STDIN_FILENO), error);
-        if ( error ) {
-            std::cerr << "Cannot assign stdin to the reactor pool. This "
-                "probably means you're trying to redirect a file rather "
-                "than pipe the commands\n\nI.e. try this:\n"
-                "   cat commands.txt | wright-exec-helper\n"
-                "instead of\n"
-                "   wright-exec-helper < commands.txt" << std::endl;
+        if (error) {
+            std::cerr
+                    << "Cannot assign stdin to the reactor pool. This "
+                       "probably means you're trying to redirect a file rather "
+                       "than pipe the commands\n\nI.e. try this:\n"
+                       "   cat commands.txt | wright-exec-helper\n"
+                       "instead of\n"
+                       "   wright-exec-helper < commands.txt"
+                    << std::endl;
             std::exit(1);
         }
         return as_stdin;
@@ -83,69 +86,85 @@ void wright::exec_helper(std::ostream &out, const char *command) {
 
     /// All the children need a presence in the reactor pool for
     /// their process requirement
-    for ( auto &child : pool.children ) {
+    for (auto &child : pool.children) {
         auto *cp = &child;
         /// Each child will wait on the command, then write it
         /// the pipe for the process to execute and wait on the result
-        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-            cp->handle_stdout(ctrlios, yield, workers.pool, [&](const std::string &job) {
-                workers.job_done(job);
-                std::cout << job << std::endl;
-            });
-        }, exit_on_error));
+        boost::asio::spawn(
+                ctrlios,
+                exception_decorator(
+                        [&, cp](auto yield) {
+                            cp->handle_stdout(
+                                    ctrlios, yield, workers.pool,
+                                    [&](const std::string &job) {
+                                        workers.job_done(job);
+                                        std::cout << job << std::endl;
+                                    });
+                        },
+                        exit_on_error));
         /// We also need to watch for a resend alert from the child process
-        boost::asio::spawn(ctrlios, exception_decorator([&, cp](auto yield) {
-            cp->handle_child_requests(ctrlios, workers, yield);
-        }, exit_on_error));
+        boost::asio::spawn(
+                ctrlios,
+                exception_decorator(
+                        [&, cp](auto yield) {
+                            cp->handle_child_requests(ctrlios, workers, yield);
+                        },
+                        exit_on_error));
         /// Finally, drain the child's stderr
         boost::asio::spawn(auxios, exception_decorator([&, cp](auto yield) {
-            cp->drain_stderr(auxios, yield);
-        }));
+                               cp->drain_stderr(auxios, yield);
+                           }));
     }
     /// If the port setting is turned on then we will start the server
-    if ( c_port.value() ) {
+    if (c_port.value()) {
         start_server(auxios, ctrlios, c_port.value(), workers);
     }
 
     /// This process now needs to read from stdin and queue the jobs
     boost::asio::posix::stream_descriptor as_stdin{connect_stdin(ctrlios)};
-    boost::asio::spawn(ctrlios, exception_decorator([&](auto yield) {
-        auto clear_overspill = [&]() {
-            for ( auto job{workers.overspill.consume()}; job; job = workers.overspill.consume() ) {
-                fostlib::log::debug(c_exec_helper)
-                    ("", "Fetched overspill job")
-                    ("job", (*job).c_str());
-                workers.next_job(std::move(*job), yield);
-            }
-        };
-        boost::asio::streambuf buffer;
-        while ( as_stdin.is_open() ) {
-            clear_overspill();
-            /// Then consume stdin
-            boost::system::error_code error;
-            auto bytes = boost::asio::async_read_until(as_stdin, buffer, '\n', yield[error]);
-            if ( error ) {
-                fostlib::log::info(c_exec_helper)
-                    ("", "Input error. Presumed end of work")
-                    ("error", error)
-                    ("bytes", bytes);
-                break;
-            } else if ( bytes ) {
-                std::string line;
-                for ( ; bytes; --bytes ) {
-                    char next = buffer.sbumpc();
-                    if ( next != 0 && next != '\n' ) {
-                        line += next;
-                    }
-                }
-                workers.next_job(std::move(line), yield);
-            }
-        }
-        clear_overspill();
-        workers.input_complete = true;
-        workers.wait_until_all_done(yield);
-        blocker.set_value();
-    }, exit_on_error));
+    boost::asio::spawn(
+            ctrlios,
+            exception_decorator(
+                    [&](auto yield) {
+                        auto clear_overspill = [&]() {
+                            for (auto job{workers.overspill.consume()}; job;
+                                 job = workers.overspill.consume()) {
+                                fostlib::log::debug(c_exec_helper)(
+                                        "", "Fetched overspill job")(
+                                        "job", (*job).c_str());
+                                workers.next_job(std::move(*job), yield);
+                            }
+                        };
+                        boost::asio::streambuf buffer;
+                        while (as_stdin.is_open()) {
+                            clear_overspill();
+                            /// Then consume stdin
+                            boost::system::error_code error;
+                            auto bytes = boost::asio::async_read_until(
+                                    as_stdin, buffer, '\n', yield[error]);
+                            if (error) {
+                                fostlib::log::info(c_exec_helper)(
+                                        "",
+                                        "Input error. Presumed end of work")(
+                                        "error", error)("bytes", bytes);
+                                break;
+                            } else if (bytes) {
+                                std::string line;
+                                for (; bytes; --bytes) {
+                                    char next = buffer.sbumpc();
+                                    if (next != 0 && next != '\n') {
+                                        line += next;
+                                    }
+                                }
+                                workers.next_job(std::move(line), yield);
+                            }
+                        }
+                        clear_overspill();
+                        workers.input_complete = true;
+                        workers.wait_until_all_done(yield);
+                        blocker.set_value();
+                    },
+                    exit_on_error));
 
     /// This needs to block here until all processing is done
     auto blocker_ready = blocker.get_future();
@@ -157,4 +176,3 @@ void wright::exec_helper(std::ostream &out, const char *command) {
     std::cerr << fostlib::performance::current() << std::endl;
     std::cerr << fostlib::coerce<fostlib::json>(pool.job_times) << std::endl;
 }
-

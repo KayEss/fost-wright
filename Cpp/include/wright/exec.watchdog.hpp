@@ -17,8 +17,8 @@ namespace wright {
 
     /// Add a watchdog that ensures that the monitored io_service is making
     /// progress on work.
-    void add_watchdog(boost::asio::io_service &to, boost::asio::io_service &monitored);
+    void add_watchdog(
+            boost::asio::io_service &to, boost::asio::io_service &monitored);
 
 
 }
-

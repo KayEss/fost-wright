@@ -22,8 +22,10 @@ namespace wright {
     namespace packet {
         enum control_numbers {
             version = 0x80,
-            execute = 0x90, completed = 0x91,
-            log_message = 0xe0};
+            execute = 0x90,
+            completed = 0x91,
+            log_message = 0xe0
+        };
     }
 
 
@@ -32,15 +34,23 @@ namespace wright {
 
 
         /// Process an inbound version packet
-        void version(std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &decode);
+        void
+                version(std::shared_ptr<connection> cnx,
+                        fostlib::hod::tcp_decoder &decode);
 
         /// A job has been recived
-        void execute(std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &decode);
+        void
+                execute(std::shared_ptr<connection> cnx,
+                        fostlib::hod::tcp_decoder &decode);
         /// A job has been completed
-        void completed(std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &decode);
+        void completed(
+                std::shared_ptr<connection> cnx,
+                fostlib::hod::tcp_decoder &decode);
 
         /// Log message
-        void log_message(std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &decode);
+        void log_message(
+                std::shared_ptr<connection> cnx,
+                fostlib::hod::tcp_decoder &decode);
 
 
     }
@@ -65,4 +75,3 @@ namespace wright {
 
 
 }
-

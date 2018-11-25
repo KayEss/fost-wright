@@ -23,9 +23,7 @@ namespace wright {
 
 
     /// Exception recovery function that re-throws the exception.
-    const auto rethrow = []() {
-        throw;
-    };
+    const auto rethrow = []() { throw; };
 
     /// An exception recovery handler we can use here
     const auto exit_on_error = []() {
@@ -35,29 +33,33 @@ namespace wright {
 
 
     /// Wrap a function to display exceptions
-    const auto exception_decorator = [](auto fn, std::function<void(void)> recov = rethrow) {
-        return [=](auto &&...a) {
-                try {
-                    return fn(a...);
-                } catch ( boost::coroutines::detail::forced_unwind & ) {
-                    throw;
-                } catch ( fostlib::exceptions::exception &e ) {
-                    fostlib::log::flush();
-                    std::cerr << e << std::endl;
-                    return recov();
-                } catch ( std::exception &e ) {
-                    fostlib::log::flush();
-                    std::cerr << e.what() << ": " << wright::c_child.value() << std::endl;
-                    return recov();
-                } catch ( ... ) {
-                    fostlib::log::flush();
-                    std::cerr << "Unkown exception: " << wright::c_child.value() << " - "
-                        << __cxxabiv1::__cxa_current_exception_type()->name() << std::endl;
-                    return recov();
-                }
-            };
+    const auto exception_decorator = [](auto fn,
+                                        std::function<void(void)> recov =
+                                                rethrow) {
+        return [=](auto &&... a) {
+            try {
+                return fn(a...);
+            } catch (boost::coroutines::detail::forced_unwind &) {
+                throw;
+            } catch (fostlib::exceptions::exception &e) {
+                fostlib::log::flush();
+                std::cerr << e << std::endl;
+                return recov();
+            } catch (std::exception &e) {
+                fostlib::log::flush();
+                std::cerr << e.what() << ": " << wright::c_child.value()
+                          << std::endl;
+                return recov();
+            } catch (...) {
+                fostlib::log::flush();
+                std::cerr << "Unkown exception: " << wright::c_child.value()
+                          << " - "
+                          << __cxxabiv1::__cxa_current_exception_type()->name()
+                          << std::endl;
+                return recov();
+            }
+        };
     };
 
 
 }
-
