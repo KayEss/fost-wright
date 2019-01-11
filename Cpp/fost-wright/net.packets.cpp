@@ -68,14 +68,14 @@ namespace {
 fostlib::hod::out_packet wright::out::execute(std::string job) {
     ++p_out_execute;
     fostlib::hod::out_packet packet(packet::execute);
-    packet << f5::u8string(job);
+    packet << fostlib::string{std::move(job)};
     return packet;
 }
 void wright::in::execute(
         std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &packet) {
     ++p_in_execute;
     cnx->capacity.overspill.produce(static_cast<std::string>(
-            fostlib::hod::read<fostlib::utf8_string>(packet)));
+            fostlib::hod::read<fostlib::utf8_string>(packet).underlying()));
 }
 namespace {
     fostlib::performance p_out_completed(
@@ -86,7 +86,7 @@ namespace {
 fostlib::hod::out_packet wright::out::completed(const std::string &job) {
     ++p_out_completed;
     fostlib::hod::out_packet packet(packet::completed);
-    packet << f5::u8string(job);
+    packet << fostlib::string{job};
     return packet;
 }
 void wright::in::completed(
@@ -95,7 +95,7 @@ void wright::in::completed(
     cnx->capacity.job_done(
             cnx,
             static_cast<std::string>(
-                    fostlib::hod::read<fostlib::utf8_string>(packet)));
+                    fostlib::hod::read<fostlib::utf8_string>(packet).underlying()));
 }
 
 
