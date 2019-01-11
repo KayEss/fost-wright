@@ -1,5 +1,5 @@
 /**
-    Copyright 2017-2018, Felspar Co Ltd. <http://support.felspar.com/>
+    Copyright 2017-2019, Felspar Co Ltd. <http://support.felspar.com/>
 
     Distributed under the Boost Software License, Version 1.0.
     See <http://www.boost.org/LICENSE_1_0.txt>
@@ -68,14 +68,14 @@ namespace {
 fostlib::hod::out_packet wright::out::execute(std::string job) {
     ++p_out_execute;
     fostlib::hod::out_packet packet(packet::execute);
-    packet << f5::u8view(job);
+    packet << f5::u8string(job);
     return packet;
 }
 void wright::in::execute(
         std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &packet) {
     ++p_in_execute;
-    cnx->capacity.overspill.produce(
-            fostlib::hod::read<fostlib::utf8_string>(packet).underlying());
+    cnx->capacity.overspill.produce(static_cast<std::string>(
+            fostlib::hod::read<fostlib::utf8_string>(packet)));
 }
 namespace {
     fostlib::performance p_out_completed(
@@ -86,14 +86,16 @@ namespace {
 fostlib::hod::out_packet wright::out::completed(const std::string &job) {
     ++p_out_completed;
     fostlib::hod::out_packet packet(packet::completed);
-    packet << f5::u8view(job);
+    packet << f5::u8string(job);
     return packet;
 }
 void wright::in::completed(
         std::shared_ptr<connection> cnx, fostlib::hod::tcp_decoder &packet) {
     ++p_in_completed;
     cnx->capacity.job_done(
-            cnx, fostlib::hod::read<fostlib::utf8_string>(packet).underlying());
+            cnx,
+            static_cast<std::string>(
+                    fostlib::hod::read<fostlib::utf8_string>(packet)));
 }
 
 
