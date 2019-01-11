@@ -1,3 +1,6 @@
+2019-01-11  Kirit Saelensminde  <kirit@felspar.com>
+ Made implementation compatible with future changes to string APIs.
+
 2018-08-08  Kirit Saelensminde  <kirit@felspar.com>
  Fix a bug where a child death after all jobs had been handed out would result in the parent process being killed.
 
