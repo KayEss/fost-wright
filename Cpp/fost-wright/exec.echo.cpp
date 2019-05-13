@@ -52,6 +52,6 @@ void wright::echo(std::istream &in, std::ostream &out, std::ostream &report) {
         }
     }
     report << fostlib::json::unparse(
-                      fostlib::coerce<fostlib::json>(times), false)
+            fostlib::coerce<fostlib::json>(times), false)
            << std::endl;
 }

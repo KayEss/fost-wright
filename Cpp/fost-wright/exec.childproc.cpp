@@ -415,17 +415,17 @@ namespace {
                                                 WIFEXITED(status);
                                         const auto wexitstatus = wifexited
                                                 ? fostlib::json(
-                                                          WEXITSTATUS(status))
+                                                        WEXITSTATUS(status))
                                                 : fostlib::json();
                                         const bool wifsignaled =
                                                 WIFSIGNALED(status);
                                         const auto wtermsig = wifsignaled
                                                 ? fostlib::json(
-                                                          WTERMSIG(status))
+                                                        WTERMSIG(status))
                                                 : fostlib::json();
                                         const auto wstopsig = wifsignaled
                                                 ? fostlib::json(
-                                                          WSTOPSIG(status))
+                                                        WSTOPSIG(status))
                                                 : fostlib::json();
                                         fostlib::log::critical(
                                                 wright::c_exec_helper)(
