@@ -1,8 +1,8 @@
-/*
-    Copyright 2016-2017, Felspar Co Ltd. http://support.felspar.com/
+/**
+    Copyright 2016-2019, Felspar Co Ltd. <http://support.felspar.com/>
+
     Distributed under the Boost Software License, Version 1.0.
-    See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt
+    See <http://www.boost.org/LICENSE_1_0.txt>
 */
 
 
@@ -19,7 +19,7 @@
 int main(int argc, char *argv[]) {
     fostlib::loaded_settings settings{"wright-exec-helper",
                                       "Wright execution helper\nCopyright (c) "
-                                      "2016-2017, Felspar Co. Ltd."};
+                                      "2016-2019, Felspar Co. Ltd."};
     fostlib::arguments args(argc, argv);
     /// Configure more settings
     const fostlib::setting<fostlib::json> exec{
@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
 
     wright::exception_decorator(
             [&]() {
+                fostlib::string cmd = args[0].value();
                 if (wright::c_simulate.value()) {
                     /// These switches are used by the simulator
                     args.commandSwitch("d", wright::c_can_die);
@@ -79,12 +80,12 @@ int main(int argc, char *argv[]) {
                     wright::echo(std::cin, std::cout, std::cerr);
                 } else if (wright::c_connect.value()) {
                     run(wright::network_logging,
-                        wright::netvisor)(args[0].value().c_str());
+                        wright::netvisor)(cmd.shrink_to_fit());
                 } else if (wright::c_child.value()) {
                     run(wright::child_logging, wright::fork_worker)();
                 } else {
-                    run(wright::parent_logging, wright::exec_helper)(
-                            std::cout, args[0].value().c_str());
+                    run(wright::parent_logging,
+                        wright::exec_helper)(std::cout, cmd.shrink_to_fit());
                 }
             },
             []() {})();
