@@ -1,5 +1,5 @@
 /**
-    Copyright 2017-2018, Felspar Co Ltd. <https://support.felspar.com/>
+    Copyright 2017-2019, Felspar Co Ltd. <https://support.felspar.com/>
 
     Distributed under the Boost Software License, Version 1.0.
     See <http://www.boost.org/LICENSE_1_0.txt>
@@ -41,8 +41,9 @@ void wright::fork_worker() {
     argvs.reserve(c_exec.value().size());
     std::vector<char const *> argv;
     for (const auto &item : c_exec.value()) {
-        argvs.push_back(fostlib::coerce<fostlib::string>(item));
-        argv.push_back(argvs.back().c_str());
+        auto str = fostlib::coerce<fostlib::string>(item);
+        argv.push_back(str.shrink_to_fit());
+        argvs.push_back(str);
     }
     argv.push_back(nullptr);
     /// Fork and loop until done
@@ -114,7 +115,7 @@ wright::childproc::childproc(std::size_t n, const char *command)
     argv.push_back("-rfd"); // Rsend FD number
     argv.push_back(backchannel_fd.c_str()); // holder for the FD number
     argv.push_back("-x"); // Program arguments
-    argv.push_back(argx.c_str());
+    argv.push_back(argx.shrink_to_fit());
     argv.push_back(nullptr);
 }
 
@@ -415,17 +416,17 @@ namespace {
                                                 WIFEXITED(status);
                                         const auto wexitstatus = wifexited
                                                 ? fostlib::json(
-                                                          WEXITSTATUS(status))
+                                                        WEXITSTATUS(status))
                                                 : fostlib::json();
                                         const bool wifsignaled =
                                                 WIFSIGNALED(status);
                                         const auto wtermsig = wifsignaled
                                                 ? fostlib::json(
-                                                          WTERMSIG(status))
+                                                        WTERMSIG(status))
                                                 : fostlib::json();
                                         const auto wstopsig = wifsignaled
                                                 ? fostlib::json(
-                                                          WSTOPSIG(status))
+                                                        WSTOPSIG(status))
                                                 : fostlib::json();
                                         fostlib::log::critical(
                                                 wright::c_exec_helper)(

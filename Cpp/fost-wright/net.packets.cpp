@@ -95,7 +95,8 @@ void wright::in::completed(
     cnx->capacity.job_done(
             cnx,
             static_cast<std::string>(
-                    fostlib::hod::read<fostlib::utf8_string>(packet).underlying()));
+                    fostlib::hod::read<fostlib::utf8_string>(packet)
+                            .underlying()));
 }
 
 
