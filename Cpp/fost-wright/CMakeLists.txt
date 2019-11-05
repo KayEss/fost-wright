@@ -16,4 +16,4 @@ target_include_directories(fost-wright PUBLIC ../include)
 target_link_libraries(fost-wright boost_coroutine fost-hod)
 set_target_properties(fost-wright PROPERTIES DEBUG_POSTFIX "-d")
 install(TARGETS fost-wright LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-
+install(DIRECTORY ../include/wright DESTINATION include)
